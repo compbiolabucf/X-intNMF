@@ -21,7 +21,7 @@ from sklearn.linear_model import Lasso
 import numpy as np
 import pandas as pd
 import logging
-
+import mlflow
 
 
 
@@ -133,13 +133,28 @@ class SimilarSampleCrossOmicNMF:
         # Debug: Print the log
         logging.info(f"Initialized CrossOmicDataInt with {self.D} omics layers, {self.N} samples, {self.M} features, {self.k} clusters, alpha={alpha}, betas={betas}, gammas={gammas}, max_iter={self.max_iter}, tol={self.tol}")
 
+        # MLFlow logging
+        mlflow.log_param("alpha", alpha)
+        mlflow.log_param("betas", betas)
+        mlflow.log_param("gammas", gammas)
+        mlflow.log_param("max_iter", self.max_iter)
+        mlflow.log_param("tol", self.tol)
+        mlflow.log_param("verbose", self.verbose)
+
+        mlflow.log_param("Number of omics layers", self.D)
+        mlflow.log_param("Sample size", self.N)
+        mlflow.log_param("Omics layers feature size", self.m)
+        mlflow.log_param("Latent size", self.k)
+
+
+
 
     def debug(self, message: str):
         if self.verbose: logging.info(message)
 
     
     from ._math import objective_function
-    from ._math import update_Ws
+    from ._math import update
 
 
     from ._supports import compute_similarity
@@ -156,7 +171,7 @@ class SimilarSampleCrossOmicNMF:
     from ._operations import InitializeBalancedCutoff
     from ._operations import InitializeWd
     from ._operations import LassoSolveH
-    from ._operations import IterativeSolveWds
+    from ._operations import IterativeSolveWdsAndH
 
 
     from ._debug import PrenormalizeDebug
@@ -182,9 +197,16 @@ class SimilarSampleCrossOmicNMF:
         balancing_cutoff_compare_with: Literal['row', 'column', 'rowcol', 'off_diag'] = "off_diag",
         balancing_cutoff_density_agg_method: Literal['mean', 'median', 'max', 'min'] = "mean",
 
-
         # Initialize Wd
         initialize_Wd_method: Union[Callable, Literal["random", "nmf"]] = "nmf",
+
+        # Lasso: Use CV?
+        use_cross_validation: bool = True,
+
+        # Evaluation:
+        no_iterations: bool = False, # Only for evaluation, output the initial W matrices and H matrix
+
+
     ) -> Tuple[List[np.ndarray], np.ndarray]:
         """
             Solve the cross-omics, multi-omics layers integration problem
@@ -264,7 +286,7 @@ class SimilarSampleCrossOmicNMF:
         logging.warning("[5/6] Solving the H matrix using Lasso...")
         H = self.LassoSolveH(
             initialized_Wds = Wds,
-            use_cross_validation = True,
+            use_cross_validation = use_cross_validation,
         )
         logging.warning(f"Solved H with shape {H.shape}, H:\n{H}")
         logging.warning("Solving H matrix completed")
@@ -276,13 +298,16 @@ class SimilarSampleCrossOmicNMF:
         # -----------------------------------------------------------------------------------------------
         # 6.Iteratively solve the W matrices
         # -----------------------------------------------------------------------------------------------
+        if no_iterations: return Wds, H
+
+        
         logging.warning("[6/6] Iteratively solving the W matrices...")
-        new_Wds = self.IterativeSolveWds(
+        res_Wds, res_H = self.IterativeSolveWdsAndH(
             initialized_Wds = Wds,
-            H = H
+            initialized_H = H
         )
 
-        return new_Wds, H
+        return res_Wds, res_H
         
 
         

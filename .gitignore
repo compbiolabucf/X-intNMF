@@ -143,3 +143,6 @@ mlruns/
 
 # Data Inspection
 notebooks/DataInspection.ipynb
+
+# Results
+results/

@@ -21,6 +21,7 @@ from typing import List, Tuple, Union, Literal, Any, Callable, Dict
 import numpy as np
 import pandas as pd
 import logging
+import mlflow
 
 
 
@@ -35,7 +36,9 @@ def objective_function(
     
     alpha:              float, 
     betas:              Union[np.ndarray, List[float]],
-    gammas:             Union[np.ndarray, List[float]]
+    gammas:             Union[np.ndarray, List[float]],
+
+    iteration:          int
 ):
     X_concatted = np.concatenate(Xs, axis=0)
     W_concatted = np.concatenate(Ws, axis=0)
@@ -82,12 +85,18 @@ def objective_function(
     # logging.info(f"Sparsity control for Ws: {sparsity_control_for_Ws}")
     # logging.info(f"Sparsity control for H: {sparsity_control_for_H}")
     # logging.info(f"Objective function value: {f}")
+
+    mlflow.log_metric("Reconstruction error", reconstruction_error, step=iteration)
+    mlflow.log_metric("Graph regularization", graph_regularization, step=iteration)
+    mlflow.log_metric("Sparsity control for Ws", sparsity_control_for_Ws, step=iteration)
+    mlflow.log_metric("Sparsity control for H", sparsity_control_for_H, step=iteration)
+
     return f
 
 
 
 
-def update_Ws(
+def update(
     self,
 
     Xs:                 List[np.ndarray], 
@@ -98,7 +107,8 @@ def update_Ws(
 
     alpha:              float, 
     betas:              Union[np.ndarray, List[float]],
-):
+    gammas:             Union[np.ndarray, List[float]]
+) -> Tuple[List[np.ndarray], np.ndarray]:
     next_Ws = []
     for d, W in enumerate(Ws_current):
         Ariel = Xs[d] @ H.T + alpha * np.sum([similarity_block[d][p] @ Wp for p, Wp in enumerate(Ws_current)], axis=0)
@@ -107,13 +117,21 @@ def update_Ws(
         next_W = Ariel / Belle * W
         next_Ws.append(next_W)
 
+
+    Ariel = np.sum([W.T @ X for W, X in zip(next_Ws, Xs)], axis=0)
+    Cindy = np.sum([W.T @ W @ H for W in next_Ws], axis=0) + np.broadcast_to(gammas, (H.shape[0], H.shape[1]))
+    next_H = Ariel / Cindy * H
+
     # # Nullity check
-    # for d, W in enumerate(next_Ws):
-    #     self.nullityCheck(W, additional_info=f"W[{d}]")
+    self.nullityCheck(H, additional_info=f"H")
+    for d, W in enumerate(next_Ws):
+        self.nullityCheck(W, additional_info=f"W[{d}]")
 
     # # Non-negativity check
-    # for d, W in enumerate(next_Ws):
-    #     self.negativeCheck(W, additional_info=f"W[{d}]")
+    self.negativeCheck(next_H, additional_info=f"H")
+    for d, W in enumerate(next_Ws):
+        self.negativeCheck(W, additional_info=f"W[{d}]")
 
-    return next_Ws
+
+    return next_Ws, next_H
 

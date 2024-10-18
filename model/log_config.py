@@ -28,7 +28,7 @@ from colorlog import ColoredFormatter
 # -----------------------------------------------------------------------------------------------
 # Setup
 # -----------------------------------------------------------------------------------------------
-def initialize_logging():
+def initialize_logging(log_filename: str = "crossomic.log"):
     # logging.root = logging.getLogger('uvicorn.default')
     logging.root.handlers = [];
 
@@ -39,7 +39,7 @@ def initialize_logging():
             "%(cyan)s%(asctime)s.%(msecs)03d %(log_color)s[%(levelname)s]%(reset)s %(light_white)s%(message)s%(reset)s %(blue)s(%(filename)s:%(lineno)d)",
             datefmt  = '%Y/%m/%d %H:%M:%S',
             log_colors={
-                'DEBUG': 'gray',
+                'DEBUG': 'white',
                 'INFO': 'green',
                 'WARNING': 'yellow',
                 'ERROR': 'red',
@@ -66,7 +66,7 @@ def initialize_logging():
 
     # File handler
     handler_file = logging.FileHandler(
-        filename = "crossomic.log",
+        filename = log_filename,
         encoding = "utf-8-sig",    
         mode     = "w"
     )
@@ -81,7 +81,7 @@ def initialize_logging():
 
     # Set logging level and handlers
     logging.basicConfig(
-        level    = logging.DEBUG,
+        level    = logging.INFO,
         handlers = [handler_sh, handler_file]
     )
 

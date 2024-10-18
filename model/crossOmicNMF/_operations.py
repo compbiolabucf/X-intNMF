@@ -16,7 +16,7 @@
 # (c) bu1th4nh. All rights reserved
 # -----------------------------------------------------------------------------------------------
 
-
+import mlflow
 import logging
 import numpy as np
 import pandas as pd
@@ -311,7 +311,7 @@ def LassoSolveH(
     H_coeffs = []
 
     # Solve individual column of H 
-    for index, gamma in tqdm(enumerate(self.gammas), desc="Solving H matrix"):
+    for index, gamma in tqdm(enumerate(list(self.gammas)), desc="Solving H matrix"):
 
         if use_cross_validation:
             lasso = LassoCV(
@@ -334,6 +334,9 @@ def LassoSolveH(
         )
         H_coeffs.append(np.array(lasso.coef_.T))
 
+        if use_cross_validation:
+            self.gammas[index] = lasso.alpha_
+
         # logging.info(f"Column {index}/{big_X.shape[1]}")
         # logging.info(f"  big_X[:, index]: \n{big_X[:, index]}")
         # logging.info(f"  Coefficients: {lasso.coef_}")
@@ -343,6 +346,12 @@ def LassoSolveH(
     H = np.array(H_coeffs).T
     logging.info(f"H shape: {H.shape}")
     logging.info(f"H density: {self.density_func_selection('density')(H)}")
+
+    # Gamma correction
+    # if use_cross_validation:
+    #     logging.info(f"Gamma (sample-based H sparsity correction) is updated to {self.gammas}")
+    #     mlflow.log_param("cross_validated_gammas", self.gammas)
+    
 
     # Nullity check
     logging.info("Nullity check...")
@@ -436,20 +445,20 @@ def NultitaskLassoSolveH(
 
 
 
-def IterativeSolveWds(
+def IterativeSolveWdsAndH(
     self,
     initialized_Wds:        List[np.ndarray], 
-    H:                      np.ndarray, 
+    initialized_H:          np.ndarray, 
 ) -> List[np.ndarray]:
     """
         Iteratively solve the W matrices with fixed H matrix (6)
         
         Input
         -----
-        `H`: np.ndarray
-            The H matrix of shape (k, N)
-        `cross_omic_similarity`: List[List[np.ndarray]]
-            The concatenated similarity matrix block of shape (M, M)
+        `initialized_Wds`: List[np.ndarray]
+            A list of initialized W matrices of shape (m_d, k)
+        `initialized_H`: np.ndarray
+            The initialized H matrix of shape (k, N)
 
         Output
         ------
@@ -484,22 +493,40 @@ def IterativeSolveWds(
     
     # Iteratively solve the W matrices
     Ws = initialized_Wds
+    H = initialized_H
     iteration = 0
-    curr_obj = self.objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas)
-
+    curr_obj = self.objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas, iteration)
+    mlflow.log_metric("objective_function", curr_obj, step=iteration)
 
     while True:
-        Ws = self.update_Ws(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas)
-        next_obj = self.objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas)
-
         iteration += 1
-        logging.info(f"Iteration {iteration}: Objective function = {next_obj}")
+        new_Ws, new_H = self.update(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas)
 
-        if np.abs(next_obj - curr_obj) < self.tol or iteration >= self.max_iter:
+        # Log the delta of Ws and H
+        for W_idx, W in enumerate(new_Ws):
+            mlflow.log_metric(f"W{W_idx}_delta", np.linalg.norm(W - Ws[W_idx], 'fro'), step=iteration)
+        mlflow.log_metric("H_delta", np.linalg.norm(new_H - H, 'fro'), step=iteration)
+
+        # Update the Ws and H
+        Ws = new_Ws
+        H = new_H
+
+        # Compute the objective function
+        next_obj = self.objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas, iteration)
+        delta = next_obj - curr_obj
+        logging.info(f"Iteration {iteration}: Objective function = {next_obj}, delta = {delta}")
+
+        # Log the objective function and delta to MLFlow
+        mlflow.log_metric("objective_function", next_obj, step=iteration)
+        mlflow.log_metric("delta", delta, step=iteration)
+
+        # Break condition
+        if np.abs(delta) < self.tol or iteration >= self.max_iter:
             break
         
         curr_obj = next_obj
-    return Ws
+
+    return Ws, H
    
 
 
