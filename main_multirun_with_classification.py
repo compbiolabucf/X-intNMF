@@ -9,121 +9,168 @@
 
 # -----------------------------------------------------------------------------------------------
 # Author: Bùi Tiến Thành (@bu1th4nh)
-# Title: prog.py
-# Date: 2024/09/16 15:53:52
+# Title: main_multirun.py
+# Date: 2024/10/19 16:22:44
 # Description: 
 # 
 # (c) bu1th4nh. All rights reserved
 # -----------------------------------------------------------------------------------------------
 
-royals_name = ['snowwhite', 'cinderella', 'aurora', 'ariel', 'belle', 'jasmine', 'pocahontas', 'mulan', 'tiana', 'rapunzel', 'merida', 'moana', 'raya', 'anna', 'elsa', 'elena']
 
-
-logfile_name = "crossomic_full.log"
-DATA_PATH = '/home/ti514716/Datasets/BreastCancer/processed_crossOmics'
-experiment_name = "SimilarSampleCrossOmicNMF"
-result_pre_path = "./results"
-
-
-import seaborn as sns
+import os
+import mlflow
+import random
+import logging
+import warnings
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
+
 from datetime import datetime
 from tqdm import tqdm
-import logging
-import random
-import os
+warnings.filterwarnings("ignore")
+
+from env_config import *
+from model.crossOmicNMF import SimilarSampleCrossOmicNMF
+from downstream.classification.evaluation_bulk import evaluate
+
+
+def randomize_run_name():
+    return f"{random.choice(royals_name)}_{random.choice(royals_name)}-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
 
 tqdm.pandas()
 np.set_printoptions(edgeitems=20, linewidth=1000, formatter=dict(float=lambda x: "%.03f" % x))
 
 
-from crossOmicNMF import SimilarSampleCrossOmicNMF
+# -----------------------------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------------------------
 from log_config import initialize_logging
-initialize_logging(logfile_name)
+initialize_logging(None)
 
 
+# -----------------------------------------------------------------------------------------------
+# MLFlow
+# -----------------------------------------------------------------------------------------------
 import mlflow
 mlflow.set_tracking_uri(uri="http://127.0.0.1:6969")
-mlflow.set_experiment(experiment_name)
+mlflow.set_experiment("SimilarSampleCrossOmicNMFv2")
 
 
-start = datetime.now()
-run_name = f"{random.choice(royals_name)}-{random.choice(royals_name)}-{random.choice(royals_name)}-{datetime.now().strftime('%Y%m%d-%H.%M.%S')}"
-result_path = f"{result_pre_path}/{run_name}"
-
-
+# -----------------------------------------------------------------------------------------------
+# Data
+# -----------------------------------------------------------------------------------------------
+testdata = pd.read_parquet(f'{DATA_PATH}/testdata_classification.parquet')
 bipart_data = pd.read_parquet(f'{DATA_PATH}/bipart.parquet')
 clinical = pd.read_parquet(f'{DATA_PATH}/clinical.parquet')
 miRNA = pd.read_parquet(f'{DATA_PATH}/miRNA.parquet')
 mRNA = pd.read_parquet(f'{DATA_PATH}/mRNA.parquet')
 
-
 features_list = [mRNA.index.to_list(), miRNA.index.to_list()]   
 sample_list = mRNA.columns.to_list()
 
 
-
-logging.info(f"mRNA.shape = {mRNA.shape}")
-logging.info(f"miRNA.shape = {miRNA.shape}")
-logging.info(f"bipart_data.shape = {bipart_data.shape}")
-
-omics_data = [np.array(mRNA.values, dtype=np.float64), np.array(miRNA.values, dtype=np.float64)]
-off_diag_interactions = {(0, 1): np.array(bipart_data.values, dtype=np.float64)}
+omics_data = [mRNA.to_numpy(np.float64, True), miRNA.to_numpy(np.float64, True)]
+off_diag_interactions = {(0, 1): bipart_data.to_numpy(np.float64, True)}
 m = [omic.shape[0] for omic in omics_data]
 
-logging.info(f"m = {m}")
-logging.info(f"Run name: {run_name}")
 
+latent_columns = [f"Latent_{i:03}" for i in range(latent_size)]
+for label in clinical: clinical[label] = clinical[label].apply(lambda x: 1 if x == 'Positive' else 0)
+# -----------------------------------------------------------------------------------------------
+# Baseline
+# -----------------------------------------------------------------------------------------------
+logging.warning("Establishing baseline")
+for run_mode in ['raw_baseline', 'norm_baseline', 'nmf_lasso_only']:
+    logging.info(f"Run mode: {run_mode}")
+    baseline_columns = latent_columns if run_mode == 'nmf_lasso_only' else features_list[0] + features_list[1]
+    run_name = f"baseline-{run_mode}"
+    result_path = f"{result_pre_path}/{run_name}"
+    
 
-with mlflow.start_run(run_name = run_name):
-    MODEL = SimilarSampleCrossOmicNMF(
-        omics_layers=omics_data,
-        cross_omics_interaction=off_diag_interactions,
-        k=10,
-        alpha=0.5,
-        betas=0.5,
-        gammas=1,
-        max_iter=100000,
-        tol=1e-4,
-        verbose=True
-    )
-    new_wds, H = MODEL.solve(no_iterations=False)
+    # Pickup if already exists
+    if os.path.exists(result_path) and pickup_leftoff_mode: continue
 
+    # Run
+    with mlflow.start_run(run_name = run_name):
+        base = SimilarSampleCrossOmicNMF(
+            omics_layers=omics_data,
+            cross_omics_interaction=off_diag_interactions,
+            k=latent_size,
+            alpha=1,
+            betas=1,
+            gammas=1,
+            max_iter=100000,
+            tol=1e-4,
+            verbose=True
+        )
+        _, H = base.solve(run_mode=run_mode, use_cross_validation=True)
+        
+        
+        # Save result
+        os.makedirs(result_path, exist_ok=True)
+        H_df = pd.DataFrame(H.T, index=sample_list, columns=baseline_columns)
+        H_df.to_parquet(f"{result_path}/H.parquet")
+        logging.info(f"Saved baseline {run_mode} to parquet file: {result_path}/H.parquet")
 
-if not os.path.exists(result_path):
-    os.makedirs(result_path)
-
-logging.fatal(f"{type(new_wds)}")
-logging.fatal(f"{type(H)}")
-
-for d, Wd in enumerate(new_wds):
-    logging.info(f"W{d} type: {type(Wd)}")
-    result = pd.DataFrame(Wd, index=features_list[d], columns=[f"Latent_{i:03}" for i in range(Wd.shape[1])])
-    result.to_parquet(f"{result_path}/W{d}.parquet")
-    logging.info(f"Saved W{d} to parquet file: {result_path}/W{d}.parquet")
-
-
-
-logging.info(f"H shape: {H.T.shape}")
-result = pd.DataFrame(H.T, index=sample_list, columns=[f"Latent_{i:03}" for i in range(H.shape[0])])
-result.to_parquet(f"{result_path}/H.parquet")
-logging.info(f"Saved H to parquet file: {result_path}/H.parquet")
-
-
-stop = datetime.now()
-
-
-print()
-print()
-print()
-print()
-print()
-logging.info(f"Algorithm run in: {stop - start}")
+        
+        # Evaluate
+        auc_result_data = evaluate(H_df, clinical, testdata, classification_methods_list)
+        auc_result_data.to_parquet(f"{result_path}/classification_result.parquet")
+    
 
 
 
+
+# -----------------------------------------------------------------------------------------------
+# Hyperparams runs
+# -----------------------------------------------------------------------------------------------
+logging.warning("Running hyperparams runs")
+alpha_possibilities = [0, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100, 1000, 10000][:1]
+beta_possibilities = [1, 0.1, 0.01, 10, 100][:2]
+
+
+for beta in beta_possibilities:
+    for alpha in alpha_possibilities:
+        logging.info(f"Running: alpha = {alpha}, beta = {beta}")
+        run_name = f"alpha-{alpha}-beta-{beta}-gamma-overridden-{randomize_run_name()}"
+        result_path = f"{result_pre_path}/{run_name}"
+        
+        # Pickup if already exists
+        if os.path.exists(result_path) and pickup_leftoff_mode: continue
+
+        # Run
+        with mlflow.start_run(run_name = run_name):
+            MODEL = SimilarSampleCrossOmicNMF(
+                omics_layers=omics_data,
+                cross_omics_interaction=off_diag_interactions,
+                k=latent_size,
+                alpha=alpha,
+                betas=beta,
+                gammas=1,
+                max_iter=100000,
+                tol=1e-4,
+                verbose=True
+            )
+            new_wds, H = MODEL.solve(run_mode='full', use_cross_validation=True)
+            
+            os.makedirs(result_path, exist_ok=True)
+            H_df = pd.DataFrame(H.T, index=sample_list, columns=latent_columns)
+            H_df.to_parquet(f"{result_path}/H.parquet")
+            logging.info(f"Saved hyperparams alpha = {alpha}, beta = {beta} to parquet file: {result_path}/H.parquet")
+
+            for d, Wd in enumerate(new_wds):
+                pd.DataFrame(Wd, index=features_list[d], columns=latent_columns).to_parquet(f"{result_path}/W{d}.parquet")
+                logging.info(f"Saved W{d} to parquet file: {result_path}/W{d}.parquet")
+
+            # Evaluate
+            logging.info(f"Evaluating hyperparams alpha = {alpha}, beta = {beta}")
+            auc_result_data = evaluate(H_df, clinical, testdata, classification_methods_list)
+            auc_result_data.to_parquet(f"{result_path}/classification_result.parquet")
+
+        
 
 # Content and code by bu1th4nh. Written with dedication in the University of Central Florida and the Magic Kingdom.
 # Powered, inspired and motivated by EDM, Counter-Strike and Disney Princesses. 
@@ -173,5 +220,4 @@ logging.info(f"Algorithm run in: {stop - start}")
 #                ⢸⣿⣿⣿⣿⡟                                          
 #                ⣼⣿⣿⣿⠟                                           
 #               ⢀⣿⡿⠛⠁                                            
-#                                                                
-                                                                                                                                       
+#            

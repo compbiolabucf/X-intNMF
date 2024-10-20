@@ -7,3 +7,4 @@ scikit-learn
 seaborn
 tqdm
 colorlog
+colorama

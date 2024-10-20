@@ -25,13 +25,24 @@ from sklearn.decomposition import NMF
 from typing import List, Tuple, Union, Literal, Any, Callable, Dict
 from sklearn.linear_model import Lasso, LassoCV, MultiTaskLasso, MultiTaskLassoCV
 
+def ComposeRawBaseline(self):
+    """
+        Compose the raw baseline, only concatenate the omic layers matrix X into a single matrix. Index and column names are preserved
+    """
+    H = np.concatenate(self.Xd, axis=0)
+    logging.info(f"Raw baseline shape: {H.shape}")
+    return H
+
+
+
+
 def PrenormalizeData(
     self,
     method: Union[Callable, Literal["l2", "l1", "max", "min", "mean", "median", "sum", "passthru"]] = "max",
     orientation: Literal["row", "column", "all"] = "row",
 ):
     """
-        Pre-normalize the omic layers matrix
+        Pre-normalize the omic layers matrix. This operation will modify the internal omic layers matrix in-place
 
         Parameters
         ----------
@@ -304,15 +315,13 @@ def LassoSolveH(
     # Concat all Ws data matrix along the column axis, aka big_W = [W_1; W_2; ...; W_D] with shape (m_1 + m_2 + ... + m_D, k)
     big_W = np.concatenate(initialized_Wds, axis=0)
     logging.info(f"Big W shape: {big_W.shape}")
-    logging.fatal(f"Big W: \n{big_W}")
 
 
     # Initialize H
     H_coeffs = []
 
     # Solve individual column of H 
-    for index, gamma in tqdm(enumerate(list(self.gammas)), desc="Solving H matrix"):
-
+    for index, gamma in enumerate(tqdm(list(self.gammas), desc="Solving H matrix")):
         if use_cross_validation:
             lasso = LassoCV(
                 fit_intercept = False, 
@@ -518,7 +527,7 @@ def IterativeSolveWdsAndH(
 
         # Log the objective function and delta to MLFlow
         mlflow.log_metric("objective_function", next_obj, step=iteration)
-        mlflow.log_metric("delta", delta, step=iteration)
+        mlflow.log_metric("delta", np.abs(delta), step=iteration)
 
         # Break condition
         if np.abs(delta) < self.tol or iteration >= self.max_iter:

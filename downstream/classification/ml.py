@@ -102,3 +102,5 @@ def core_data_init():
     negative_samples = list((clinical.loc[common_sample, :]).copy(deep=True)[clinical['ER'] == 0].index)
 
     return positive_samples, negative_samples, clinical
+
+

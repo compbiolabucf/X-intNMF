@@ -166,6 +166,7 @@ class SimilarSampleCrossOmicNMF:
     from ._supports import convert_block_matrix_to_table_of_matrices
 
     
+    from ._operations import ComposeRawBaseline
     from ._operations import PrenormalizeData
     from ._operations import InitializeAndConcatenateInteraction
     from ._operations import InitializeBalancedCutoff
@@ -204,17 +205,30 @@ class SimilarSampleCrossOmicNMF:
         use_cross_validation: bool = True,
 
         # Evaluation:
-        no_iterations: bool = False, # Only for evaluation, output the initial W matrices and H matrix
+        run_mode: Literal['full', 'nmf_lasso_only', 'norm_baseline', 'raw_baseline'] = 'full'
 
 
     ) -> Tuple[List[np.ndarray], np.ndarray]:
         """
             Solve the cross-omics, multi-omics layers integration problem
         """
+        self.Xd = self.Xd_source
+        # -----------------------------------------------------------------------------------------------
+        # Compose raw baseline if needed
+        # -----------------------------------------------------------------------------------------------
+        if run_mode == 'raw_baseline':
+            Wd = []
+
+            for x in self.Xd:
+                logging.fatal(f"Xd shape: {x.shape}")
+
+            H = self.ComposeRawBaseline()
+            return Wd, H
+
+
         # -----------------------------------------------------------------------------------------------
         # 0.Pre-normalize the data
         # -----------------------------------------------------------------------------------------------
-        self.Xd = self.Xd_source
         if pre_normalize:
             logging.warning("[0/6] Pre-normalizing the data...")
             self.PrenormalizeData(
@@ -224,7 +238,10 @@ class SimilarSampleCrossOmicNMF:
             logging.warning("Pre-normalization completed")
 
 
-
+            if run_mode == 'norm_baseline':
+                Wd = []
+                H = self.ComposeRawBaseline()
+                return Wd, H
 
 
 
@@ -272,7 +289,7 @@ class SimilarSampleCrossOmicNMF:
         )
         for i, Wd in enumerate(Wds):
             logging.warning(f"Initialized Wd[{i}] with shape {Wd.shape}")
-            logging.warning(Wd)
+            # logging.warning(Wd)
         logging.warning("Initialization of W matrices completed")
 
 
@@ -288,7 +305,7 @@ class SimilarSampleCrossOmicNMF:
             initialized_Wds = Wds,
             use_cross_validation = use_cross_validation,
         )
-        logging.warning(f"Solved H with shape {H.shape}, H:\n{H}")
+        logging.warning(f"Solved H with shape {H.shape}")
         logging.warning("Solving H matrix completed")
 
 
@@ -298,7 +315,8 @@ class SimilarSampleCrossOmicNMF:
         # -----------------------------------------------------------------------------------------------
         # 6.Iteratively solve the W matrices
         # -----------------------------------------------------------------------------------------------
-        if no_iterations: return Wds, H
+        if run_mode == 'nmf_lasso_only':
+            return Wds, H
 
         
         logging.warning("[6/6] Iteratively solving the W matrices...")
