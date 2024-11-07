@@ -18,13 +18,18 @@
 
 from typing import List, Tuple, Union, Literal, Any, Callable, Dict
 from sklearn.linear_model import Lasso
+from numba.experimental import jitclass
+from numba import jit
 import numpy as np
 import pandas as pd
 import logging
 import mlflow
 
 
+from ._math import objective_function
+from ._math import update
 
+# @jitclass
 class SimilarSampleCrossOmicNMF:
     """
         Class to solve the cross-omics, multi-omics layers integration problem 
@@ -153,8 +158,7 @@ class SimilarSampleCrossOmicNMF:
         if self.verbose: logging.info(message)
 
     
-    from ._math import objective_function
-    from ._math import update
+    
 
 
     from ._supports import compute_similarity
@@ -205,7 +209,10 @@ class SimilarSampleCrossOmicNMF:
         use_cross_validation: bool = True,
 
         # Evaluation:
-        run_mode: Literal['full', 'nmf_lasso_only', 'norm_baseline', 'raw_baseline'] = 'full'
+        run_mode: Literal['full', 'nmf_lasso_only', 'norm_baseline', 'raw_baseline'] = 'full',
+        
+        # Test AUC
+        evaluation_metric: Union[Callable, None] = None,
 
 
     ) -> Tuple[List[np.ndarray], np.ndarray]:
@@ -322,7 +329,8 @@ class SimilarSampleCrossOmicNMF:
         logging.warning("[6/6] Iteratively solving the W matrices...")
         res_Wds, res_H = self.IterativeSolveWdsAndH(
             initialized_Wds = Wds,
-            initialized_H = H
+            initialized_H = H,
+            eval_metrics = evaluation_metric,
         )
 
         return res_Wds, res_H

@@ -20,14 +20,14 @@
 import numpy as np
 import pandas as pd
 
-DATA_PATH = '/home/ti514716/Datasets/BreastCancer/processed_crossOmics'
-result_pre_path = '/home/ti514716/Projects/SimilarSampleCrossOmicNMF/results/'
+DATA_PATH = '/home/ti514716/Datasets/BreastCancer/processed_crossOmics_micro'
+# DATA_PATH = '/home/ti514716/Datasets/BreastCancer/processed_crossOmics'
+result_pre_path = '/home/ti514716/Projects/SimilarSampleCrossOmicNMF/results/test'
 
 royals_name = ['snowwhite', 'cinderella', 'aurora', 'ariel', 'belle', 'jasmine', 'pocahontas', 'mulan', 'tiana', 'rapunzel', 'merida', 'moana', 'raya', 'anna', 'elsa', 'elena']
 logfile_name = "model.log"
-experiment_name = "test"
+experiment_name = "test_experiment"
 
 
-latent_size = 10
 pickup_leftoff_mode = True
-classification_methods_list = ["Logistic Regression", "SVM"]
+classification_methods_list = ["Logistic Regression", "Random Forest"]

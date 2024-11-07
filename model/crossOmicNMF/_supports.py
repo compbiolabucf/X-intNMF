@@ -18,11 +18,13 @@
 
 
 import logging
+import cupy as cp
 import numpy as np
 import pandas as pd
+from numba import jit
 from typing import List, Tuple, Union, Literal, Any, Callable, Dict
 
-
+# @jit
 def compute_similarity(
     self,
     omics_layers: np.ndarray, 
@@ -56,6 +58,7 @@ def compute_similarity(
 
 
 
+# @jit
 def divisor_func_selection(
     self,
     method: Literal["l2", "l1", "max", "min", "mean", "median", "sum"],
@@ -68,17 +71,18 @@ def divisor_func_selection(
 
     # logging.info(orientation, shape)
 
-    if method == "l2":       return lambda x: np.reshape(np.linalg.norm(x, ord=2, axis=orientation), shape = shape)
-    elif method == "l1":     return lambda x: np.reshape(np.linalg.norm(x, ord=1, axis=orientation), shape = shape)
-    elif method == "max":    return lambda x: np.reshape(np.max(x, axis=orientation), shape = shape)
-    elif method == "min":    return lambda x: np.reshape(np.min(x, axis=orientation), shape = shape)
-    elif method == "mean":   return lambda x: np.reshape(np.mean(x, axis=orientation), shape = shape)
-    elif method == "median": return lambda x: np.reshape(np.median(x, axis=orientation), shape = shape)
-    elif method == "sum":    return lambda x: np.reshape(np.sum(x, axis=orientation), shape = shape)
+    if method == "l2":       return lambda x: np.reshape(np.linalg.norm(x, ord=2, axis=orientation), newshape = shape)
+    elif method == "l1":     return lambda x: np.reshape(np.linalg.norm(x, ord=1, axis=orientation), newshape = shape)
+    elif method == "max":    return lambda x: np.reshape(np.max(x, axis=orientation), newshape = shape)
+    elif method == "min":    return lambda x: np.reshape(np.min(x, axis=orientation), newshape = shape)
+    elif method == "mean":   return lambda x: np.reshape(np.mean(x, axis=orientation), newshape = shape)
+    elif method == "median": return lambda x: np.reshape(np.median(x, axis=orientation), newshape = shape)
+    elif method == "sum":    return lambda x: np.reshape(np.sum(x, axis=orientation), newshape = shape)
     else: return None
 
 
 
+# @jit
 def norm_func_selection(
     self,
     method: Union[Callable, Literal["l2", "l1", "max", "min", "mean", "median", "sum", "passthru"]],
@@ -92,6 +96,7 @@ def norm_func_selection(
 
 
 
+# @jit
 def threshold_cutoff(
     self,
     matrix: np.ndarray,
@@ -104,6 +109,7 @@ def threshold_cutoff(
 
 
 
+# @jit
 def density_func_selection(
     self,
     density_measure: Union[Callable, Literal['density', 'gini', 'rank']]
@@ -119,7 +125,7 @@ def density_func_selection(
     else: return lambda x: np.count_nonzero(x) / x.size
 
 
-
+# @jit
 def density_agg_func_selection(
     self,
     agg_method: Literal['mean', 'median', 'max', 'min']
@@ -134,7 +140,7 @@ def density_agg_func_selection(
     else: return None
 
 
-
+# @jit
 def convert_block_matrix_to_table_of_matrices(
     self,
     block_matrix: np.ndarray,

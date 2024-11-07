@@ -107,3 +107,80 @@ def evaluate(H, label_data, testdata, methods_list):
     # Save AUC result
     return AUC_result
                 
+
+
+class IterativeEvaluation:
+    def __init__(self, label_data: pd.DataFrame, testdata: pd.DataFrame, sample_list: list, methods_list: list):
+        self.methods_list = methods_list
+        self.label_data = label_data
+        self.testdata = testdata
+        self.sample_list = sample_list
+
+
+    def classification(self, H):
+        # Prepping the data and result
+        logging.info("Starting iterative evaluation on classification")
+        auc_columns = []
+        for label in self.label_data.columns:
+            for method in self.methods_list:
+                auc_columns.append(f"{label}_{method}_AUC")
+        AUC_result = pd.DataFrame(
+            index = self.testdata.index,
+            columns = auc_columns
+        )
+
+        # Assume label is 0-1
+        for label in self.label_data.columns:
+            # Iterate through each test
+            for test_id in tqdm(self.testdata.index, desc=f"Evaluating label {label} on testdata"):
+                # Get sample IDs
+                train_sample_ids = self.testdata.loc[test_id, f'{label}_train']
+                test_sample_ids = self.testdata.loc[test_id, f'{label}_test']
+
+                # Get train test X/Y
+                X_train = H.loc[train_sample_ids].values
+                Y_train = self.label_data.loc[train_sample_ids, label]
+                X_test = H.loc[test_sample_ids].values
+                Y_test = self.label_data.loc[test_sample_ids, label]
+
+                # Evaluate each method
+                for cls_method in self.methods_list:
+                    if(cls_method == "SVM"):                    cls = SVC(probability=True, verbose=False)
+                    elif(cls_method == "Random Forest"):        cls = RandomForestClassifier(verbose=False)
+                    elif(cls_method == "Logistic Regression"):  cls = LogisticRegression(max_iter=1000, verbose=False)
+                    elif(cls_method == "AdaBoost"):             cls = AdaBoostClassifier()
+
+                    # Fit the model
+                    cls.fit(X_train, Y_train)
+                    predicted = cls.predict_proba(X_test)[::,1]
+                    fpr, tpr, _ = roc_curve(Y_test, predicted)
+                    auc_val = auc(fpr, tpr)
+
+                    # Store the result
+                    AUC_result.at[test_id, f"{label}_{cls_method}_AUC"] = auc_val
+
+
+        # Calculate, log statistics
+        logging.info("Eval completed. Calculating statistics")
+        results = {}
+        for label in self.label_data.columns:
+            for cls_method in self.methods_list:
+                auc_values = AUC_result[f"{label}_{cls_method}_AUC"].values
+                avg_auc = np.mean(auc_values)
+                results[f"{label}_{cls_method}"] = avg_auc
+        return results
+    
+
+    def evaluate(self, Ws, H, step):
+        logging.info("Starting evaluation")
+        H_df = pd.DataFrame(H.T, index=self.sample_list, columns=[f"Latent_{i:03}" for i in range(H.shape[0])])
+        
+        # Classification
+        result_cls = self.classification(H_df)
+        for keyword, value in result_cls.items():
+            data_pack = keyword.split("_")
+            label = data_pack[0]
+            method = data_pack[1]
+            mlflow.log_metric(f"{label} {method} AUC over iterations", value, step=step)
+            
+

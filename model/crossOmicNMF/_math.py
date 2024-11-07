@@ -18,6 +18,7 @@
 
 
 from typing import List, Tuple, Union, Literal, Any, Callable, Dict
+from numba import jit
 import numpy as np
 import pandas as pd
 import logging
@@ -25,8 +26,10 @@ import mlflow
 
 
 
+
+# @jit(forceobj=True)
 def objective_function(
-    self,
+    # self,
 
     Xs:                 List[np.ndarray], 
     Ws:                 List[np.ndarray], 
@@ -52,18 +55,18 @@ def objective_function(
 
     
     # Nullity check
-    self.nullityCheck(X_concatted, additional_info="X_concatted")
-    self.nullityCheck(W_concatted, additional_info="W_concatted")
-    self.nullityCheck(H, additional_info="H")
-    self.nullityCheck(np.block(similarity_block), additional_info="similarity_block")
-    self.nullityCheck(np.block(degree_block), additional_info="degree_block")
+    # self.nullityCheck(X_concatted, additional_info="X_concatted")
+    # self.nullityCheck(W_concatted, additional_info="W_concatted")
+    # self.nullityCheck(H, additional_info="H")
+    # self.nullityCheck(np.block(similarity_block), additional_info="similarity_block")
+    # self.nullityCheck(np.block(degree_block), additional_info="degree_block")
 
     # Non-negativity check
-    self.negativeCheck(X_concatted, additional_info="X_concatted")
-    self.negativeCheck(W_concatted, additional_info="W_concatted")
-    self.negativeCheck(H, additional_info="H")
-    self.negativeCheck(np.block(similarity_block), additional_info="similarity_block")
-    self.negativeCheck(np.block(degree_block), additional_info="degree_block")
+    # self.negativeCheck(X_concatted, additional_info="X_concatted")
+    # self.negativeCheck(W_concatted, additional_info="W_concatted")
+    # self.negativeCheck(H, additional_info="H")
+    # self.negativeCheck(np.block(similarity_block), additional_info="similarity_block")
+    # self.negativeCheck(np.block(degree_block), additional_info="degree_block")
 
 
     # Calculate the reconstruction error
@@ -71,14 +74,14 @@ def objective_function(
 
     # Graph regularization term
     laplacian_block = np.block(degree_block) - np.block(similarity_block)
-    graph_regularization = np.trace(W_concatted.T @ laplacian_block @ W_concatted)
+    graph_regularization = alpha/2 * np.trace(W_concatted.T @ laplacian_block @ W_concatted)
 
     # Sparsity control term for W
     sparsity_control_for_Ws = np.array([np.linalg.norm(W, ord=1) for W in Ws]) @ np.array(betas)
 
     # Sparsity control term for H
     sparsity_control_for_H = np.linalg.norm(H, ord=1, axis = 0) @ np.array(gammas)
-    f = 1/2 * reconstruction_error + alpha/2 * graph_regularization + sparsity_control_for_Ws + sparsity_control_for_H
+    f = 1/2 * reconstruction_error + graph_regularization + sparsity_control_for_Ws + sparsity_control_for_H
 
     # logging.info(f"Reconstruction error: {reconstruction_error}")
     # logging.info(f"Graph regularization: {graph_regularization}")
@@ -95,9 +98,9 @@ def objective_function(
 
 
 
-
+# @jit(forceobj=True)
 def update(
-    self,
+    # self,
 
     Xs:                 List[np.ndarray], 
     Ws_current:         List[np.ndarray], 
@@ -123,14 +126,14 @@ def update(
     next_H = Ariel / Cindy * H
 
     # # Nullity check
-    self.nullityCheck(H, additional_info=f"H")
-    for d, W in enumerate(next_Ws):
-        self.nullityCheck(W, additional_info=f"W[{d}]")
+    # self.nullityCheck(H, additional_info=f"H")
+    # for d, W in enumerate(next_Ws):
+    #     self.nullityCheck(W, additional_info=f"W[{d}]")
 
     # # Non-negativity check
-    self.negativeCheck(next_H, additional_info=f"H")
-    for d, W in enumerate(next_Ws):
-        self.negativeCheck(W, additional_info=f"W[{d}]")
+    # self.negativeCheck(next_H, additional_info=f"H")
+    # for d, W in enumerate(next_Ws):
+    #     self.negativeCheck(W, additional_info=f"W[{d}]")
 
 
     return next_Ws, next_H

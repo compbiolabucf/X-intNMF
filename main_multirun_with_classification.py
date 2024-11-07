@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore")
 
 from env_config import *
 from model.crossOmicNMF import SimilarSampleCrossOmicNMF
-from downstream.classification.evaluation_bulk import evaluate
+from downstream.classification.evaluation_bulk import evaluate, IterativeEvaluation
 
 
 def randomize_run_name():
@@ -56,7 +56,7 @@ initialize_logging(None)
 # -----------------------------------------------------------------------------------------------
 import mlflow
 mlflow.set_tracking_uri(uri="http://127.0.0.1:6969")
-mlflow.set_experiment("SimilarSampleCrossOmicNMFv2")
+mlflow.set_experiment(experiment_name)
 
 
 # -----------------------------------------------------------------------------------------------
@@ -77,7 +77,6 @@ off_diag_interactions = {(0, 1): bipart_data.to_numpy(np.float64, True)}
 m = [omic.shape[0] for omic in omics_data]
 
 
-latent_columns = [f"Latent_{i:03}" for i in range(latent_size)]
 for label in clinical: clinical[label] = clinical[label].apply(lambda x: 1 if x == 'Positive' else 0)
 # -----------------------------------------------------------------------------------------------
 # Baseline
@@ -85,7 +84,7 @@ for label in clinical: clinical[label] = clinical[label].apply(lambda x: 1 if x 
 logging.warning("Establishing baseline")
 for run_mode in ['raw_baseline', 'norm_baseline', 'nmf_lasso_only']:
     logging.info(f"Run mode: {run_mode}")
-    baseline_columns = latent_columns if run_mode == 'nmf_lasso_only' else features_list[0] + features_list[1]
+    baseline_columns = features_list[0] + features_list[1] if run_mode == 'raw_baseline' else [f"latent_{i:03}" for i in range(10)]
     run_name = f"baseline-{run_mode}"
     result_path = f"{result_pre_path}/{run_name}"
     
@@ -98,11 +97,11 @@ for run_mode in ['raw_baseline', 'norm_baseline', 'nmf_lasso_only']:
         base = SimilarSampleCrossOmicNMF(
             omics_layers=omics_data,
             cross_omics_interaction=off_diag_interactions,
-            k=latent_size,
+            k=10,
             alpha=1,
             betas=1,
             gammas=1,
-            max_iter=100000,
+            max_iter=20000,
             tol=1e-4,
             verbose=True
         )
@@ -121,27 +120,43 @@ for run_mode in ['raw_baseline', 'norm_baseline', 'nmf_lasso_only']:
         auc_result_data.to_parquet(f"{result_path}/classification_result.parquet")
     
 
-
+# -----------------------------------------------------------------------------------------------
+# Hyperparams evaluation over iterations
+# -----------------------------------------------------------------------------------------------
+evaluator = IterativeEvaluation(clinical.copy(deep=True), testdata.copy(deep=True), sample_list, ['Logistic Regression'])
 
 
 # -----------------------------------------------------------------------------------------------
 # Hyperparams runs
 # -----------------------------------------------------------------------------------------------
 logging.warning("Running hyperparams runs")
-alpha_possibilities = [0, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100, 1000, 10000][:1]
-beta_possibilities = [1, 0.1, 0.01, 10, 100][:2]
+alpha_possibilities = [1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100, 1000, 10000, 0]
+beta_possibilities = [1, 0.1, 0.01, 10, 100]
+latent_possibilities = [10, 25, 50, 100, 200]
+
+# Prepare running pack
+running_pack = []
+for latent_size in latent_possibilities:
+    for beta in beta_possibilities:
+        for alpha in alpha_possibilities:
+            running_pack.append((latent_size, alpha, beta))
+random.shuffle(running_pack)
 
 
-for beta in beta_possibilities:
-    for alpha in alpha_possibilities:
-        logging.info(f"Running: alpha = {alpha}, beta = {beta}")
-        run_name = f"alpha-{alpha}-beta-{beta}-gamma-overridden-{randomize_run_name()}"
-        result_path = f"{result_pre_path}/{run_name}"
-        
-        # Pickup if already exists
-        if os.path.exists(result_path) and pickup_leftoff_mode: continue
+# Run
+for latent_size, alpha, beta in running_pack:
+    latent_columns = [f"latent_{i:03}" for i in range(latent_size)]
+    logging.info(f"Running: alpha = {alpha}, beta = {beta}")
+    run_name = f"k-{latent_size}-alpha-{alpha}-beta-{beta}-gamma-overridden"
+    result_path = f"{result_pre_path}/{run_name}"
+    
+    # Pickup if already exists
+    if os.path.exists(result_path) and pickup_leftoff_mode: 
+        logging.warning(f"Result path {result_path} already exists. Skipping...")
+        continue
 
-        # Run
+    # Run
+    try:
         with mlflow.start_run(run_name = run_name):
             MODEL = SimilarSampleCrossOmicNMF(
                 omics_layers=omics_data,
@@ -150,11 +165,16 @@ for beta in beta_possibilities:
                 alpha=alpha,
                 betas=beta,
                 gammas=1,
-                max_iter=100000,
+                max_iter= 10000 if latent_size < 100 else 5000,
                 tol=1e-4,
                 verbose=True
             )
-            new_wds, H = MODEL.solve(run_mode='full', use_cross_validation=True)
+
+            try:
+                new_wds, H = MODEL.solve(run_mode='full', use_cross_validation=True, evaluation_metric=evaluator.evaluate)
+            except Exception as e:
+                logging.error(f"Error occurred: {e}")
+                
             
             os.makedirs(result_path, exist_ok=True)
             H_df = pd.DataFrame(H.T, index=sample_list, columns=latent_columns)
@@ -169,6 +189,9 @@ for beta in beta_possibilities:
             logging.info(f"Evaluating hyperparams alpha = {alpha}, beta = {beta}")
             auc_result_data = evaluate(H_df, clinical, testdata, classification_methods_list)
             auc_result_data.to_parquet(f"{result_path}/classification_result.parquet")
+    except Exception as e:
+        logging.error(f"Error occurred during run: {e}")
+        continue
 
         
 

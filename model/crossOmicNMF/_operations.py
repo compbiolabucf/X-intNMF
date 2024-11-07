@@ -21,9 +21,14 @@ import logging
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from numba import jit
 from sklearn.decomposition import NMF
 from typing import List, Tuple, Union, Literal, Any, Callable, Dict
 from sklearn.linear_model import Lasso, LassoCV, MultiTaskLasso, MultiTaskLassoCV
+
+
+from ._math import objective_function
+from ._math import update
 
 def ComposeRawBaseline(self):
     """
@@ -375,89 +380,11 @@ def LassoSolveH(
 
 
 
-
-
-def NultitaskLassoSolveH(
-    self,
-    initialized_Wds: List[np.ndarray], 
-    use_cross_validation: bool = False,
-) -> np.ndarray:
-    """
-        Solve the H matrix with fixed W matrices (5)
-        
-        Input
-        -----
-        `omics_layers`: List[np.ndarray]
-            A list of omics layers matrices of shape (m_d, N)
-        `initialized_Wds`: List[np.ndarray]
-            A list of initialized W matrices of shape (m_d, k). The cluster size will be self-inferred from the shape of the W matrices
-        `use_cross_validation`: bool = False
-            Whether to use cross-validation to find the optimal gamma value for the Lasso regression. If True, gamma will be inferred from cross-validation. If False, gamma will be inferred from the class attribute `gammas`
-        
-
-
-        Output
-        ------
-        H: np.ndarray
-            The H matrix of shape (k, N)
-    """
-
-
-    # Concat all omics layers matrix along the column axis, aka big_X = [X_1; X_2; ...; X_D] with shape (m_1 + m_2 + ... + m_D, N)
-    big_X = np.concatenate(self.Xd, axis=0)
-    logging.info(f"Big X shape: {big_X.shape}")
-    
-    # Concat all Ws data matrix along the column axis, aka big_W = [W_1; W_2; ...; W_D] with shape (m_1 + m_2 + ... + m_D, k)
-    big_W = np.concatenate(initialized_Wds, axis=0)
-    logging.info(f"Big W shape: {big_W.shape}")
-    logging.fatal(f"Big W: \n{big_W}")
-
-
-    # Initialize H
-    H_coeffs = []
-
-    # Solve individual column of H 
-    for index, gamma in enumerate(self.gammas):
-        lasso = Lasso(
-            alpha = gamma, 
-            fit_intercept = False, 
-            positive = True, 
-            warm_start = True
-        );
-        lasso.fit(
-            big_W,
-            big_X[:, index],
-        )
-        H_coeffs.append(np.array(lasso.coef_.T))
-
-        logging.info(f"Column {index}/{big_X.shape[1]}")
-        logging.info(f"  big_X[:, index]: \n{big_X[:, index]}")
-        logging.info(f"  Coefficients: {lasso.coef_}")
-        logging.info(f"  Intercept: {lasso.intercept_}")
-
-    # Construct H
-    H = np.array(H_coeffs).T
-    logging.info(f"H shape: {H.shape}")
-
-    # Nullity check
-    logging.info("Nullity check...")
-    self.nullityCheck(H, "solved H matrix")
-
-    # Non-negativity check
-    logging.info("Non-negativity check...")
-    self.negativeCheck(H, "solved H matrix")
-
-    return H
-
-
-
-
-
-
 def IterativeSolveWdsAndH(
     self,
     initialized_Wds:        List[np.ndarray], 
     initialized_H:          np.ndarray, 
+    eval_metrics:           Union[None, Callable] = None,
 ) -> List[np.ndarray]:
     """
         Iteratively solve the W matrices with fixed H matrix (6)
@@ -468,6 +395,8 @@ def IterativeSolveWdsAndH(
             A list of initialized W matrices of shape (m_d, k)
         `initialized_H`: np.ndarray
             The initialized H matrix of shape (k, N)
+        `eval_metrics`: Callable, optional
+            A function to evaluate the metrics during the iteration. The function should take the current W matrices and H matrix as input and log the metrics with every 50 iterations.
 
         Output
         ------
@@ -504,12 +433,14 @@ def IterativeSolveWdsAndH(
     Ws = initialized_Wds
     H = initialized_H
     iteration = 0
-    curr_obj = self.objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas, iteration)
+    curr_obj = objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas, iteration)
     mlflow.log_metric("objective_function", curr_obj, step=iteration)
+
+    if eval_metrics is not None: eval_metrics(Ws, H, iteration)
 
     while True:
         iteration += 1
-        new_Ws, new_H = self.update(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas)
+        new_Ws, new_H = update(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas)
 
         # Log the delta of Ws and H
         for W_idx, W in enumerate(new_Ws):
@@ -521,9 +452,13 @@ def IterativeSolveWdsAndH(
         H = new_H
 
         # Compute the objective function
-        next_obj = self.objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas, iteration)
+        next_obj = objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas, iteration)
         delta = next_obj - curr_obj
         logging.info(f"Iteration {iteration}: Objective function = {next_obj}, delta = {delta}")
+
+        # Evaluate metrics if provided
+        if eval_metrics is not None and iteration % 50 == 0:
+            eval_metrics(Ws, H, iteration)
 
         # Log the objective function and delta to MLFlow
         mlflow.log_metric("objective_function", next_obj, step=iteration)
@@ -534,6 +469,8 @@ def IterativeSolveWdsAndH(
             break
         
         curr_obj = next_obj
+
+    mlflow.log_metric("Iterations to converge", iteration)
 
     return Ws, H
    

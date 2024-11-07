@@ -18,11 +18,13 @@
 
 
 from typing import List, Tuple, Union, Literal, Any, Callable, Dict
+from numba import jit
 import numpy as np
 import pandas as pd
 import logging
 
 
+# @jit(forceobj=True)
 def PrenormalizeDebug(
     self,
     matrix: np.ndarray = None,
@@ -49,7 +51,7 @@ def PrenormalizeDebug(
 
 
 
-
+# @jit
 def nullityCheck(
     self,
     matrix: np.ndarray = None,
@@ -68,6 +70,7 @@ def nullityCheck(
     
 
 
+# @jit
 def negativeCheck(
     self,
     matrix: np.ndarray = None,
