@@ -18,6 +18,7 @@
 
 import mlflow
 import logging
+import cupy as cp
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -29,6 +30,9 @@ from sklearn.linear_model import Lasso, LassoCV, MultiTaskLasso, MultiTaskLassoC
 
 from ._math import objective_function
 from ._math import update
+
+from ._math_cupy import cupy_objective_function
+from ._math_cupy import cupy_update
 
 def ComposeRawBaseline(self):
     """
@@ -472,6 +476,120 @@ def IterativeSolveWdsAndH(
 
     mlflow.log_metric("Iterations to converge", iteration)
 
+    return Ws, H
+   
+
+
+def IterativeSolveWdsAndH_CuPy(
+    self,
+    initialized_Wds:        Union[List[np.ndarray], List[cp.ndarray]], 
+    initialized_H:          Union[np.ndarray, cp.ndarray], 
+    eval_metrics:           Union[None, Callable] = None,
+) -> List[np.ndarray]:
+    """
+        Iteratively solve the W matrices with fixed H matrix (6)
+        
+        Input
+        -----
+        `initialized_Wds`: List[np.ndarray]
+            A list of initialized W matrices of shape (m_d, k)
+        `initialized_H`: np.ndarray
+            The initialized H matrix of shape (k, N)
+        `eval_metrics`: Callable, optional
+            A function to evaluate the metrics during the iteration. The function should take the current W matrices and H matrix as input and log the metrics with every 50 iterations.
+
+        Output
+        ------
+        W: List[np.ndarray]
+            A list of W matrices of shape (m_d, k)
+    """
+
+    # Construct the omic indices for matrix splitting
+    omics_indices = np.cumsum(self.m)[:-1] # Drop the final index
+    
+    # Construct the normalized similarity matrix
+    E = np.block(self.E)
+    D = np.diag(1 / np.sqrt(np.sum(E, axis=1)))
+    E_normalized = D @ E @ D
+    E = self.convert_block_matrix_to_table_of_matrices(E_normalized, omics_indices)
+
+    # Construct the degree matrix
+    degree_block = self.convert_block_matrix_to_table_of_matrices(np.eye(self.M), omics_indices)
+
+    # Debug: Output the split indices and the shape of the degree block
+    logging.info(f"Split indices: {omics_indices}")
+    logging.info(f"Degree block - Total shape: {np.block(degree_block).shape}")
+    logging.info(f"Degree block - individual shape:")
+    for hblk in degree_block:
+        logging.info("  ".join(f"{blk.shape}" for blk in hblk))
+    
+    # Debug: Output the shape of the similarity block
+    logging.info(f"Similarity block - total shape: {np.block(E).shape}")
+    logging.info(f"Degree block - individual shape:")
+    for hblk in self.E:
+        logging.info("  ".join(f"{blk.shape}" for blk in hblk))
+
+
+    # CuPy Extension
+    initialized_Wds = [cp.asarray(W) for W in initialized_Wds]
+    initialized_H = cp.asarray(initialized_H)
+    for p in range(self.D):
+        for q in range(self.D):
+            E[p][q] = cp.asarray(E[p][q])
+            degree_block[p][q] = cp.asarray(degree_block[p][q])
+    alpha = cp.float64(self.alpha)
+    betas = cp.asarray(self.betas)
+    gammas = cp.asarray(self.gammas)
+    Xd = [cp.asarray(X) for X in self.Xd]
+
+
+
+    
+    # Iteratively solve the W matrices
+    Ws = initialized_Wds
+    H = initialized_H
+    iteration = 0
+    curr_obj = cupy_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration)
+    mlflow.log_metric("objective_function", curr_obj, step=iteration)
+
+    if eval_metrics is not None: eval_metrics(Ws, H, iteration)
+
+    while True:
+        iteration += 1
+        new_Ws, new_H = cupy_update(Xd, Ws, H, E, degree_block, alpha, betas, gammas)
+
+        # Log the delta of Ws and H
+        for W_idx, W in enumerate(new_Ws):
+            mlflow.log_metric(f"W{W_idx}_delta", cp.linalg.norm(W - Ws[W_idx], 'fro'), step=iteration)
+        mlflow.log_metric("H_delta", cp.linalg.norm(new_H - H, 'fro'), step=iteration)
+
+        # Update the Ws and H
+        Ws = new_Ws
+        H = new_H
+
+        # Compute the objective function
+        next_obj = cupy_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration)
+        delta = next_obj - curr_obj
+        logging.info(f"Iteration {iteration}: Objective function = {next_obj}, delta = {delta}")
+
+        # Evaluate metrics if provided
+        if eval_metrics is not None and iteration % 50 == 0:
+            eval_metrics(Ws, H, iteration)
+
+        # Log the objective function and delta to MLFlow
+        mlflow.log_metric("objective_function", next_obj, step=iteration)
+        mlflow.log_metric("delta", cp.abs(delta), step=iteration)
+
+        # Break condition
+        if cp.abs(delta) < self.tol or iteration >= self.max_iter:
+            break
+        
+        curr_obj = next_obj
+
+    mlflow.log_metric("Iterations to converge", iteration)
+
+    Ws = [W.get() for W in Ws]
+    H = H.get()
     return Ws, H
    
 

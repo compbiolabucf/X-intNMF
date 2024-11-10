@@ -19,6 +19,7 @@
 
 import mlflow
 import logging
+import cupy as cp
 import numpy as np
 import pandas as pd
 
@@ -172,6 +173,12 @@ class IterativeEvaluation:
     
 
     def evaluate(self, Ws, H, step):
+        # CuPy Sanitize
+        if isinstance(H, cp.ndarray): 
+            H = H.get()
+            Ws = [W.get() for W in Ws]
+
+
         logging.info("Starting evaluation")
         H_df = pd.DataFrame(H.T, index=self.sample_list, columns=[f"Latent_{i:03}" for i in range(H.shape[0])])
         

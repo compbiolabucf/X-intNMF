@@ -177,6 +177,7 @@ class SimilarSampleCrossOmicNMF:
     from ._operations import InitializeWd
     from ._operations import LassoSolveH
     from ._operations import IterativeSolveWdsAndH
+    from ._operations import IterativeSolveWdsAndH_CuPy
 
 
     from ._debug import PrenormalizeDebug
@@ -327,7 +328,7 @@ class SimilarSampleCrossOmicNMF:
 
         
         logging.warning("[6/6] Iteratively solving the W matrices...")
-        res_Wds, res_H = self.IterativeSolveWdsAndH(
+        res_Wds, res_H = self.IterativeSolveWdsAndH_CuPy(
             initialized_Wds = Wds,
             initialized_H = H,
             eval_metrics = evaluation_metric,

@@ -170,10 +170,11 @@ for latent_size, alpha, beta in running_pack:
                 verbose=True
             )
 
-            try:
-                new_wds, H = MODEL.solve(run_mode='full', use_cross_validation=True, evaluation_metric=evaluator.evaluate)
-            except Exception as e:
-                logging.error(f"Error occurred: {e}")
+            # try:
+            new_wds, H = MODEL.solve(run_mode='full', use_cross_validation=True, evaluation_metric=evaluator.evaluate)
+            # except Exception as e:
+            #     logging.error(f"Error occurred: {e}")
+            #     raise e
                 
             
             os.makedirs(result_path, exist_ok=True)
@@ -191,6 +192,7 @@ for latent_size, alpha, beta in running_pack:
             auc_result_data.to_parquet(f"{result_path}/classification_result.parquet")
     except Exception as e:
         logging.error(f"Error occurred during run: {e}")
+        raise e
         continue
 
         
