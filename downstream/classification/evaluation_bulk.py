@@ -190,4 +190,3 @@ class IterativeEvaluation:
             method = data_pack[1]
             mlflow.log_metric(f"{label} {method} AUC over iterations", value, step=step)
             
-

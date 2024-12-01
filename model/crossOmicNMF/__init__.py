@@ -213,7 +213,7 @@ class SimilarSampleCrossOmicNMF:
         run_mode: Literal['full', 'nmf_lasso_only', 'norm_baseline', 'raw_baseline'] = 'full',
         
         # Test AUC
-        evaluation_metric: Union[Callable, None] = None,
+        additional_tasks: Union[Callable, None] = None,
 
 
     ) -> Tuple[List[np.ndarray], np.ndarray]:
@@ -331,7 +331,7 @@ class SimilarSampleCrossOmicNMF:
         res_Wds, res_H = self.IterativeSolveWdsAndH_CuPy(
             initialized_Wds = Wds,
             initialized_H = H,
-            eval_metrics = evaluation_metric,
+            additional_tasks = additional_tasks,
         )
 
         return res_Wds, res_H

@@ -386,9 +386,10 @@ def LassoSolveH(
 
 def IterativeSolveWdsAndH(
     self,
-    initialized_Wds:        List[np.ndarray], 
-    initialized_H:          np.ndarray, 
-    eval_metrics:           Union[None, Callable] = None,
+    initialized_Wds:            List[np.ndarray], 
+    initialized_H:              np.ndarray, 
+    additional_tasks:           Union[None, Callable, List[Callable]] = None,
+    additional_tasks_interval:  int = 50,
 ) -> List[np.ndarray]:
     """
         Iteratively solve the W matrices with fixed H matrix (6)
@@ -399,8 +400,10 @@ def IterativeSolveWdsAndH(
             A list of initialized W matrices of shape (m_d, k)
         `initialized_H`: np.ndarray
             The initialized H matrix of shape (k, N)
-        `eval_metrics`: Callable, optional
-            A function to evaluate the metrics during the iteration. The function should take the current W matrices and H matrix as input and log the metrics with every 50 iterations.
+        `additional_tasks`: Callable, optional
+            A function to execute the metrics during the iteration. The function should take the current W matrices and H matrix as input and perform the additional tasks with every `additional_tasks_interval` iterations.
+        `additional_tasks_interval`: int
+            The interval to execute the additional tasks. Default is 50
 
         Output
         ------
@@ -440,7 +443,11 @@ def IterativeSolveWdsAndH(
     curr_obj = objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas, iteration)
     mlflow.log_metric("objective_function", curr_obj, step=iteration)
 
-    if eval_metrics is not None: eval_metrics(Ws, H, iteration)
+    if additional_tasks is not None: 
+        if callable(additional_tasks): 
+            additional_tasks(Ws, H, iteration)
+        else: 
+            for task in additional_tasks: task(Ws, H, iteration)
 
     while True:
         iteration += 1
@@ -461,8 +468,11 @@ def IterativeSolveWdsAndH(
         logging.info(f"Iteration {iteration}: Objective function = {next_obj}, delta = {delta}")
 
         # Evaluate metrics if provided
-        if eval_metrics is not None and iteration % 50 == 0:
-            eval_metrics(Ws, H, iteration)
+        if additional_tasks is not None and iteration % additional_tasks_interval == 0:
+            if callable(additional_tasks): 
+                additional_tasks(Ws, H, iteration)
+            else: 
+                for task in additional_tasks: task(Ws, H, iteration)
 
         # Log the objective function and delta to MLFlow
         mlflow.log_metric("objective_function", next_obj, step=iteration)
@@ -482,9 +492,10 @@ def IterativeSolveWdsAndH(
 
 def IterativeSolveWdsAndH_CuPy(
     self,
-    initialized_Wds:        Union[List[np.ndarray], List[cp.ndarray]], 
-    initialized_H:          Union[np.ndarray, cp.ndarray], 
-    eval_metrics:           Union[None, Callable] = None,
+    initialized_Wds:            Union[List[np.ndarray], List[cp.ndarray]], 
+    initialized_H:              Union[np.ndarray, cp.ndarray], 
+    additional_tasks:           Union[None, Callable, List[Callable]] = None,
+    additional_tasks_interval:  int = 50,
 ) -> List[np.ndarray]:
     """
         Iteratively solve the W matrices with fixed H matrix (6)
@@ -495,8 +506,10 @@ def IterativeSolveWdsAndH_CuPy(
             A list of initialized W matrices of shape (m_d, k)
         `initialized_H`: np.ndarray
             The initialized H matrix of shape (k, N)
-        `eval_metrics`: Callable, optional
-            A function to evaluate the metrics during the iteration. The function should take the current W matrices and H matrix as input and log the metrics with every 50 iterations.
+        `additional_tasks`: Callable, optional
+            A function to execute the metrics during the iteration. The function should take the current W matrices and H matrix as input and perform the additional tasks with every `additional_tasks_interval` iterations.
+        `additional_tasks_interval`: int
+            The interval to execute the additional tasks. Default is 50
 
         Output
         ------
@@ -552,7 +565,11 @@ def IterativeSolveWdsAndH_CuPy(
     curr_obj = cupy_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration)
     mlflow.log_metric("objective_function", curr_obj, step=iteration)
 
-    if eval_metrics is not None: eval_metrics(Ws, H, iteration)
+    if additional_tasks is not None: 
+        if callable(additional_tasks): 
+            additional_tasks(Ws, H, iteration)
+        else: 
+            for task in additional_tasks: task(Ws, H, iteration)
 
     while True:
         iteration += 1
@@ -573,8 +590,12 @@ def IterativeSolveWdsAndH_CuPy(
         logging.info(f"Iteration {iteration}: Objective function = {next_obj}, delta = {delta}")
 
         # Evaluate metrics if provided
-        if eval_metrics is not None and iteration % 50 == 0:
-            eval_metrics(Ws, H, iteration)
+        if additional_tasks is not None and iteration % additional_tasks_interval == 0:
+            if callable(additional_tasks): 
+                additional_tasks(Ws, H, iteration)
+            else: 
+                for task in additional_tasks: task(Ws, H, iteration)
+
 
         # Log the objective function and delta to MLFlow
         mlflow.log_metric("objective_function", next_obj, step=iteration)

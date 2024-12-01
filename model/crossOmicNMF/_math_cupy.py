@@ -44,10 +44,6 @@ def cupy_objective_function(
 
     iteration:          int
 ):
-    X_concatted = np.concatenate(Xs, axis=0)
-    W_concatted = np.concatenate(Ws, axis=0)
-
-
 
     # Calculate the reconstruction error
     reconstruction_error = 0 #cp.sum(cp.array([cp.linalg.norm(X - W @ H, ord="fro") ** 2 for X, W in zip(Xs, Ws)])) # np.linalg.norm(X_concatted - W_concatted @ H, ord="fro") ** 2
