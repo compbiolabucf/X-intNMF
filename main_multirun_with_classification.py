@@ -192,7 +192,7 @@ for latent_size, alpha, beta in running_pack:
             auc_result_data.to_parquet(f"{result_path}/classification_result.parquet")
     except Exception as e:
         logging.error(f"Error occurred during run: {e}")
-        raise e
+        # raise e
         continue
 
         
