@@ -18,8 +18,6 @@
 
 from typing import List, Tuple, Union, Literal, Any, Callable, Dict
 from sklearn.linear_model import Lasso
-from numba.experimental import jitclass
-from numba import jit
 import numpy as np
 import pandas as pd
 import logging

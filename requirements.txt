@@ -7,4 +7,9 @@ scikit-learn
 seaborn
 tqdm
 colorlog
+openpyxl
 colorama
+
+s3fs
+mlflow
+cupy-cuda12x

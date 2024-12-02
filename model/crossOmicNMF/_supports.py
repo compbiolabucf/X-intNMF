@@ -21,7 +21,6 @@ import logging
 import cupy as cp
 import numpy as np
 import pandas as pd
-from numba import jit
 from typing import List, Tuple, Union, Literal, Any, Callable, Dict
 
 # @jit

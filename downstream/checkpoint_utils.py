@@ -29,13 +29,16 @@ from typing import List, Dict, Any, Tuple, Union, Literal
 
 
 class IterativeCheckpointing:
-    def __init__(self, sample_list, omics_features, prefix_path):
+    def __init__(self, sample_list, omics_features, prefix_path, storage_options = None, s3 = None):
         self.sample_list = sample_list
         self.omics_features = omics_features
         self.prefix_path = prefix_path
         self.checkpoint_path = f"{prefix_path}/checkpoints"
+        self.storage_options = storage_options
+        self.s3 = s3
 
-        os.makedirs(self.checkpoint_path, exist_ok=True)
+        if self.s3 is not None: self.s3.makedirs(self.checkpoint_path, exist_ok=True)
+        else: os.makedirs(self.checkpoint_path, exist_ok=True)
         logging.fatal(f"Checkpointing to: {self.checkpoint_path}")
 
 
@@ -55,13 +58,15 @@ class IterativeCheckpointing:
         # Init columns and paths
         latent_columns = [f"Latent_{i:03}" for i in range(H.shape[0])]
         actual_checkpoint_path = f"{self.prefix_path}" if step is None else f"{self.checkpoint_path}/step_{int(step):05}"
-        os.makedirs(actual_checkpoint_path, exist_ok=True)
+
+        if self.s3 is not None: self.s3.makedirs(actual_checkpoint_path, exist_ok=True)
+        else: os.makedirs(actual_checkpoint_path, exist_ok=True)
 
 
         # Save
         H_df = pd.DataFrame(H.T, index=self.sample_list, columns=latent_columns)
-        H_df.to_parquet(f"{actual_checkpoint_path}/H.parquet")
-        for d, Wd in enumerate(Ws): pd.DataFrame(Wd, index=self.omics_features[d], columns=latent_columns).to_parquet(f"{actual_checkpoint_path}/W{d}.parquet")
+        H_df.to_parquet(f"{actual_checkpoint_path}/H.parquet", storage_options=self.storage_options)
+        for d, Wd in enumerate(Ws): pd.DataFrame(Wd, index=self.omics_features[d], columns=latent_columns).to_parquet(f"{actual_checkpoint_path}/W{d}.parquet", storage_options=self.storage_options)
 
 
         # Log

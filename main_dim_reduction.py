@@ -24,6 +24,7 @@ import mlflow
 import random
 import logging
 import warnings
+import cupy as cp
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -42,7 +43,7 @@ from downstream.checkpoint_utils import IterativeCheckpointing
 def randomize_run_name():
     return f"{random.choice(royals_name)}_{random.choice(royals_name)}-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-
+cp.cuda.runtime.setDevice(1)
 tqdm.pandas()
 np.set_printoptions(edgeitems=20, linewidth=1000, formatter=dict(float=lambda x: "%.03f" % x))
 
@@ -65,9 +66,9 @@ mlflow.set_experiment(experiment_name)
 # -----------------------------------------------------------------------------------------------
 # Data
 # -----------------------------------------------------------------------------------------------
-bipart_data = pd.read_parquet(f'{DATA_PATH}/bipart.parquet')
-miRNA = pd.read_parquet(f'{DATA_PATH}/miRNA.parquet')
-mRNA = pd.read_parquet(f'{DATA_PATH}/mRNA.parquet')
+bipart_data = pd.read_parquet(f'{DATA_PATH}/bipart.parquet', storage_options=storage_options)
+miRNA = pd.read_parquet(f'{DATA_PATH}/miRNA.parquet', storage_options=storage_options)
+mRNA = pd.read_parquet(f'{DATA_PATH}/mRNA.parquet', storage_options=storage_options)
 
 features_list = [mRNA.index.to_list(), miRNA.index.to_list()]   
 sample_list = mRNA.columns.to_list()
@@ -127,25 +128,33 @@ random.shuffle(running_pack)
 running_pack = prioritized_runs + running_pack
 
 # Run
-for latent_size, alpha, beta in running_pack[:2]:
+for latent_size, alpha, beta in running_pack[2:]:
     latent_columns = [f"latent_{i:03}" for i in range(latent_size)]
     logging.info(f"Running: alpha = {alpha}, beta = {beta}")
     run_name = f"k-{latent_size}-alpha-{alpha}-beta-{beta}-gamma-overridden"
     result_path = f"{RESULT_PRE_PATH}/{run_name}"
 
 
-    # Pickup if already exists
-    if os.path.exists(f'{result_path}/H.parquet') and pickup_leftoff_mode: 
-        logging.warning(f"Result path {result_path} already exists. Skipping...")
-        continue
+    # Pickup if already exists. Update for S3
+    if storage_options is not None:
+        if s3.exists(f'{result_path}/H.parquet') and pickup_leftoff_mode: 
+            logging.warning(f"Result path {result_path} already exists. Skipping...")
+            continue
+    else:
+        if os.path.exists(f'{result_path}/H.parquet') and pickup_leftoff_mode: 
+            logging.warning(f"Result path {result_path} already exists. Skipping...")
+            continue
 
 
     # Checkpointing
-    os.makedirs(f"{result_path}/checkpoints", exist_ok=True)
+    if storage_options is not None: s3.makedirs(f"{result_path}/checkpoints", exist_ok=True)
+    else: os.makedirs(f"{result_path}/checkpoints", exist_ok=True)
     drc_saving = IterativeCheckpointing(
         sample_list = sample_list,
         omics_features = features_list,
-        prefix_path = result_path
+        prefix_path = result_path,
+        storage_options = storage_options,
+        s3 = s3
     )
 
 
@@ -178,8 +187,12 @@ for latent_size, alpha, beta in running_pack[:2]:
 
             # Save Run ID to file
             run_id = mlflow.active_run().info.run_id
-            with open(f"{result_path}/run_id.txt", "w") as f:
-                f.write(run_id)
+            if storage_options is not None:
+                with s3.open(f"{result_path}/run_id.txt", "w") as f:
+                    f.write(run_id)
+            else:
+                with open(f"{result_path}/run_id.txt", "w") as f:
+                    f.write(run_id)
 
 
     except Exception as e:
