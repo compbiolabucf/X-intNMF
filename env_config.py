@@ -17,43 +17,74 @@
 # -----------------------------------------------------------------------------------------------
 
 
+import cupy as cp
 import numpy as np
 import pandas as pd
+import argparse
 import s3fs
 
+
+# -----------------------------------------------------------------------------------------------
+# General
+# -----------------------------------------------------------------------------------------------
 royals_name = ['snowwhite', 'cinderella', 'aurora', 'ariel', 'belle', 'jasmine', 'pocahontas', 'mulan', 'tiana', 'rapunzel', 'merida', 'moana', 'raya', 'anna', 'elsa', 'elena']
 classification_methods_list = ["Logistic Regression", "Random Forest"]
 logfile_name = "model.log"
 pickup_leftoff_mode = True
 
 
-# experiment_name = "test_experiment"
-# storage_options = None
-# DATA_PATH = '/home/ti514716/Datasets/LungCancer/processed_micro'
-# RESULT_PRE_PATH = '/home/ti514716/Results/Test'
-# s3 = None
+# -----------------------------------------------------------------------------------------------
+# Args
+# -----------------------------------------------------------------------------------------------
+parser = argparse.ArgumentParser()
+parser.add_argument("--run_mode", type=str, required=True)
+parser.add_argument("--storage_mode", type=str, required=True)
+parser.add_argument("--gpu", type=int, required=True)
+args = parser.parse_args()
 
 
 
-# experiment_name = 'SimilarSampleCrossOmicNMFv3_LUAD'
-# storage_options = None
-# DATA_PATH = '/home/bu1th4nh/Datasets/LungCancer/processed'
-# RESULT_PRE_PATH = '/home/bu1th4nh/Results/SimilarSampleCrossOmicNMF/luad'
-# s3 = None
+# -----------------------------------------------------------------------------------------------
+# Config
+# -----------------------------------------------------------------------------------------------
+if args.storage_mode == "local":
+    DATA_PATH = '/home/ti514716/Datasets/'
+    RESULT_PRE_PATH = '/home/ti514716/Results/SimilarSampleCrossOmicNMF/'
+    storage_options = None
+    s3 = None
+elif args.storage_mode == "s3":
+    DATA_PATH = 's3://datasets/'
+    RESULT_PRE_PATH = 's3://results/SimilarSampleCrossOmicNMF/'
+    storage_options = {
+        'key': 'bu1th4nh',
+        'secret': 'ariel.anna.elsa',
+        'endpoint_url': 'http://localhost:9000',
+    }
+    s3 = s3fs.S3FileSystem(
+        key=storage_options['key'],
+        secret=storage_options['secret'],
+        endpoint_url=storage_options['endpoint_url'],
+        use_ssl=False,
+    )
+else: raise ValueError("Invalid storage mode")
+    
+
+
+if args.run_mode == "luad":
+    experiment_name = 'SimilarSampleCrossOmicNMFv3_LUAD'
+    DATA_PATH += 'LungCancer/processed'
+    RESULT_PRE_PATH += 'luad'
+elif args.run_mode == "ov":
+    experiment_name = 'SimilarSampleCrossOmicNMFv3_OV'
+    DATA_PATH += 'OvarianCancer/processed'
+    RESULT_PRE_PATH += 'ov'
+elif args.run_mode == "brca":
+    experiment_name = 'SimilarSampleCrossOmicNMFv3'
+    DATA_PATH += 'BreastCancer/processed'
+    RESULT_PRE_PATH += 'brca'
+else: raise ValueError("Invalid run mode")
 
 
 
-experiment_name = 'SimilarSampleCrossOmicNMFv3_LUAD'
-storage_options = {
-    'key': 'bu1th4nh',
-    'secret': 'ariel.anna.elsa',
-    'endpoint_url': 'http://localhost:9000',
-}
-DATA_PATH = 's3://datasets/LungCancer/processed'
-RESULT_PRE_PATH = 's3://results/SimilarSampleCrossOmicNMF/luad'
-s3 = s3fs.S3FileSystem(
-    key=storage_options['key'],
-    secret=storage_options['secret'],
-    endpoint_url=storage_options['endpoint_url'],
-    use_ssl=False,
-)
+gpu = np.clip(args.gpu, 0, cp.cuda.runtime.getDeviceCount()-1)
+cp.cuda.runtime.setDevice(gpu)

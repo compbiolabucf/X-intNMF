@@ -43,9 +43,10 @@ from downstream.checkpoint_utils import IterativeCheckpointing
 def randomize_run_name():
     return f"{random.choice(royals_name)}_{random.choice(royals_name)}-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-cp.cuda.runtime.setDevice(1)
 tqdm.pandas()
 np.set_printoptions(edgeitems=20, linewidth=1000, formatter=dict(float=lambda x: "%.03f" % x))
+
+
 
 
 # -----------------------------------------------------------------------------------------------
@@ -174,7 +175,7 @@ for latent_size, alpha, beta in running_pack[2:]:
             )
 
             # try:
-            new_wds, H = MODEL.solve(run_mode='full', use_cross_validation=True, additional_tasks=[drc_saving.save])
+            new_wds, H = MODEL.solve(run_mode='full', use_cross_validation=True, additional_tasks=[drc_saving.save], additional_tasks_interval = 100)
             # except Exception as e:
             #     logging.error(f"Error occurred: {e}")
             #     raise e

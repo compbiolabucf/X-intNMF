@@ -212,6 +212,7 @@ class SimilarSampleCrossOmicNMF:
         
         # Test AUC
         additional_tasks: Union[Callable, None] = None,
+        additional_tasks_interval: int = 50,
 
 
     ) -> Tuple[List[np.ndarray], np.ndarray]:
@@ -330,6 +331,7 @@ class SimilarSampleCrossOmicNMF:
             initialized_Wds = Wds,
             initialized_H = H,
             additional_tasks = additional_tasks,
+            additional_tasks_interval = additional_tasks_interval,
         )
 
         return res_Wds, res_H

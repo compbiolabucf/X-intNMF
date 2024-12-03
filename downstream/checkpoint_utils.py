@@ -66,7 +66,7 @@ class IterativeCheckpointing:
         # Save
         H_df = pd.DataFrame(H.T, index=self.sample_list, columns=latent_columns)
         H_df.to_parquet(f"{actual_checkpoint_path}/H.parquet", storage_options=self.storage_options)
-        for d, Wd in enumerate(Ws): pd.DataFrame(Wd, index=self.omics_features[d], columns=latent_columns).to_parquet(f"{actual_checkpoint_path}/W{d}.parquet", storage_options=self.storage_options)
+        # for d, Wd in enumerate(Ws): pd.DataFrame(Wd, index=self.omics_features[d], columns=latent_columns).to_parquet(f"{actual_checkpoint_path}/W{d}.parquet", storage_options=self.storage_options)
 
 
         # Log
