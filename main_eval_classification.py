@@ -32,7 +32,7 @@ from typing import List, Dict, Any, Tuple, Union, Literal
 
 
 
-if __name__ == 'main'
+if __name__ == '__main__':
     from env_config import *
     from log_config import initialize_logging
     from downstream.classification import evaluate_one_target
@@ -129,7 +129,7 @@ if __name__ == 'main'
 
             # Check if run already exists
             for target_folder in target_folders:
-                target_id = target_folder.split('/')[-1]
+                target_id = str(target_folder.split('/')[-1]).split('.')[0]
                 if find_run(run_id, target_id) is not None:
                     logging.info(f"Run {run_id} on dataset {target_id} already exists. Skipping")
                     continue
@@ -138,8 +138,8 @@ if __name__ == 'main'
                     'run_folder': run_folder,
                     'target_id': target_id,
                 })
-                actual_runs.insert(run_folder)
-                actual_targets.insert(target_id)
+                actual_runs.add(run_folder)
+                actual_targets.add(target_id)
 
         # If no new runs, increase patience
         logging.info(f"Found {len(run_queue)} new runs to evaluate")
@@ -163,9 +163,10 @@ if __name__ == 'main'
         # Iterate through each run
         if args.parallel:
             logging.info("Starting parallel classification evaluation")
-            with multiprocessing.Pool(processes=4) as pool:
-                for _ in tqdm(pool.imap_unordered(lambda x: process_run(x, run_data, tar_data), run_queue), total=len(run_queue)):
-                    pass
+
+            parallel_args = [(run_info, run_data, tar_data) for run_info in run_queue]
+            with multiprocessing.Pool(processes=24) as pool:
+                tqdm(pool.starmap(process_run, parallel_args))
         else:
             logging.info("Starting sequential classification evaluation")
             for run_info in tqdm(run_queue):

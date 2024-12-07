@@ -49,12 +49,12 @@ args = parser.parse_args()
 # Config
 # -----------------------------------------------------------------------------------------------
 if args.storage_mode == "local":
-    DATA_PATH = '/home/ti514716/Datasets/'
+    DATA_PATH = '/home/ti514716/Datasets'
     RESULT_PRE_PATH = '/home/ti514716/Results/SimilarSampleCrossOmicNMF/'
     storage_options = None
     s3 = None
 elif args.storage_mode == "s3":
-    DATA_PATH = 's3://datasets/'
+    DATA_PATH = 's3://datasets'
     RESULT_PRE_PATH = 's3://results/SimilarSampleCrossOmicNMF/'
     storage_options = {
         'key': 'bu1th4nh',
