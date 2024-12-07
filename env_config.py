@@ -39,7 +39,8 @@ pickup_leftoff_mode = True
 parser = argparse.ArgumentParser()
 parser.add_argument("--run_mode", type=str, required=True)
 parser.add_argument("--storage_mode", type=str, required=True)
-parser.add_argument("--gpu", type=int, required=True)
+parser.add_argument("--gpu", type=int, required=False, default=0)
+parser.add_argument("--parallel", type=bool, required=False, default=False)
 args = parser.parse_args()
 
 
@@ -72,19 +73,25 @@ else: raise ValueError("Invalid storage mode")
 
 if args.run_mode == "luad":
     experiment_name = 'SimilarSampleCrossOmicNMFv3_LUAD'
-    DATA_PATH += 'LungCancer/processed'
+    base_path = f'{DATA_PATH}/LungCancer'
+    DATA_PATH = f'{base_path}/processed'
+    TARG_PATH = f'{base_path}/clinical_testdata'
     RESULT_PRE_PATH += 'luad'
 elif args.run_mode == "ov":
     experiment_name = 'SimilarSampleCrossOmicNMFv3_OV'
-    DATA_PATH += 'OvarianCancer/processed'
+    base_path = f'{DATA_PATH}/OvarianCancer'
+    DATA_PATH = f'{base_path}/processed'
+    TARG_PATH = f'{base_path}/clinical_testdata'
     RESULT_PRE_PATH += 'ov'
 elif args.run_mode == "brca":
     experiment_name = 'SimilarSampleCrossOmicNMFv3'
-    DATA_PATH += 'BreastCancer/processed'
+    base_path = f'{DATA_PATH}/BreastCancer'
+    DATA_PATH += 'BreastCancer/processed_crossOmics'
+    TARG_PATH = f'{base_path}/clinical_testdata'
     RESULT_PRE_PATH += 'brca'
 else: raise ValueError("Invalid run mode")
 
 
-
-gpu = np.clip(args.gpu, 0, cp.cuda.runtime.getDeviceCount()-1)
-cp.cuda.runtime.setDevice(gpu)
+if cp.cuda.is_available():
+    gpu = np.clip(args.gpu, 0, cp.cuda.runtime.getDeviceCount()-1)
+    cp.cuda.runtime.setDevice(gpu)
