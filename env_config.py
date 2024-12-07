@@ -78,6 +78,7 @@ if args.run_mode == "luad":
     TARG_PATH = f'{base_path}/clinical_testdata'
     RESULT_PRE_PATH += 'luad'
 elif args.run_mode == "ov":
+    # experiment_name = 'test_experiment'
     experiment_name = 'SimilarSampleCrossOmicNMFv3_OV'
     base_path = f'{DATA_PATH}/OvarianCancer'
     DATA_PATH = f'{base_path}/processed'

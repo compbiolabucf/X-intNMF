@@ -84,14 +84,14 @@ def evaluate_one_target(H, testdata, methods_list, target):
             AUPRC = average_precision_score(Y_test, prob)
 
             # Store the result
-            results[cls_method].at[test_id, 'pred'] = pred
-            results[cls_method].at[test_id, 'prob'] = prob
-            results[cls_method].at[test_id, 'ACC'] = ACC
-            results[cls_method].at[test_id, 'REC'] = REC
-            results[cls_method].at[test_id, 'F1'] = F1
-            results[cls_method].at[test_id, 'MCC'] = MCC
-            results[cls_method].at[test_id, 'AUROC'] = AUROC
-            results[cls_method].at[test_id, 'AUPRC'] = AUPRC
+            results[cls_method].at[test_id, 'pred'] = pd.Series(pred).astype(int).tolist()
+            results[cls_method].at[test_id, 'prob'] = pd.Series(prob).astype(int).tolist()
+            results[cls_method].at[test_id, 'ACC'] = float(ACC)
+            results[cls_method].at[test_id, 'REC'] = float(REC)
+            results[cls_method].at[test_id, 'F1'] = float(F1)
+            results[cls_method].at[test_id, 'MCC'] = float(MCC)
+            results[cls_method].at[test_id, 'AUROC'] = float(AUROC)
+            results[cls_method].at[test_id, 'AUPRC'] = float(AUPRC)
 
     return results
 

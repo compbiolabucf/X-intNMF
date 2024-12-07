@@ -21,14 +21,22 @@
 import os
 import json
 import mlflow
+import random
 import pymongo
 import logging
+import multiprocessing
+
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import multiprocessing
+from datetime import datetime
 from typing import List, Dict, Any, Tuple, Union, Literal
 
+def randomize_run_name():
+    return f"{random.choice(royals_name)}_{random.choice(royals_name)}-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+tqdm.pandas()
+np.set_printoptions(edgeitems=20, linewidth=1000, formatter=dict(float=lambda x: "%.03f" % x))
 
 
 
@@ -103,9 +111,11 @@ if __name__ == '__main__':
 
 
         # MLFlow
-        with mlflow.start_run(run_id = run_id):
+        # with mlflow.start_run(run_name = randomize_run_name()):
+        with mlflow.start_run(run_id=run_id):
             for key in data_pack['summary'].keys():
-                if 'Mean' in key: mlflow.log_metric(f'{target_id} {key}', data_pack['summary'][key])
+                if 'Mean AUROC' in key: mlflow.log_metric(f'{target_id} {key}', data_pack['summary'][key])
+                if 'Mean MCC' in key: mlflow.log_metric(f'{target_id} {key}', data_pack['summary'][key])
 
 
         # Save to MongoDB
