@@ -114,7 +114,7 @@ if __name__ == '__main__':
         # with mlflow.start_run(run_name = randomize_run_name()):
         with mlflow.start_run(run_id=run_id):
             for key in data_pack['summary'].keys():
-                if 'Mean AUROC' in key: mlflow.log_metric(f'{target_id} {key}', data_pack['summary'][key])
+                # if 'Mean AUROC' in key: mlflow.log_metric(f'{target_id} {key}', data_pack['summary'][key])
                 if 'Mean MCC' in key: mlflow.log_metric(f'{target_id} {key}', data_pack['summary'][key])
 
 

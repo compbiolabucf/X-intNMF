@@ -59,7 +59,7 @@ elif args.storage_mode == "s3":
     storage_options = {
         'key': 'bu1th4nh',
         'secret': 'ariel.anna.elsa',
-        'endpoint_url': 'http://localhost:9000',
+        'endpoint_url': 'http://localhost:19000',
     }
     s3 = s3fs.S3FileSystem(
         key=storage_options['key'],
@@ -78,7 +78,6 @@ if args.run_mode == "luad":
     TARG_PATH = f'{base_path}/clinical_testdata'
     RESULT_PRE_PATH += 'luad'
 elif args.run_mode == "ov":
-    # experiment_name = 'test_experiment'
     experiment_name = 'SimilarSampleCrossOmicNMFv3_OV'
     base_path = f'{DATA_PATH}/OvarianCancer'
     DATA_PATH = f'{base_path}/processed'
