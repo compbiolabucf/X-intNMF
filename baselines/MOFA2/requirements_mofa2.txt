@@ -8,3 +8,4 @@ tqdm
 pyarrow
 fastparquet
 openpyxl
+mlflow
