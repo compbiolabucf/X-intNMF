@@ -323,7 +323,7 @@ def custom___evaluate_one_target(
         for data_field in result_for_one_test.keys():
             results.at[test_id, data_field] = result_for_one_test[data_field]
 
-    if result_queue is not None:
+    if result_queue is None:
         return {
             'id': target_id,
             'data': results.to_dict(orient='index')

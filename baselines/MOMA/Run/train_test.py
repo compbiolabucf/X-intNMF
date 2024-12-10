@@ -36,7 +36,7 @@ from torch.utils.data import  TensorDataset, DataLoader
 from model import mtlAttention32, EarlyStopping
 
 
-def custom___train_test(
+def custom___eval_one_test(
     omic_layers,
     label_data_series,
     tr_sample_list,
@@ -103,8 +103,8 @@ def custom___train_test(
             if (epoch+1) % 2000 == 0 or epoch == 0:
                 print ('Epoch [{}/{}], Loss: {:.4f}, BCE_task1; {:.4f}, BCE_task2; {:.4f}'.format(epoch+1,num_epochs, running_loss1+running_loss2,running_loss1,running_loss2))
 
-    ### Test
                 
+    ### Test
     test1,test2 = net.forward_one(Xg_test.clone().detach(),Xm_test.clone().detach())
     test1 = test1.cpu().detach().numpy()
     test2 = test2.cpu().detach().numpy()
@@ -147,3 +147,37 @@ def parallel_train_test(device, label_data, testdata, label, methods_list, mRNA,
         }
     )
     logging.info(f"Finished evaluating label {label} on testdata")
+
+
+
+def parallel_train_test_one_target(device, label_data, testdata, label, mRNA, miRNA, result_queue):
+    auc_columns = {}
+    
+
+    # Iterate through each test
+    for test_id in tqdm(testdata.index, desc=f"Evaluating label {label} on testdata"):
+        # Get sample IDs
+        train_sample_ids = testdata.loc[test_id, f'{label}_train']
+        test_sample_ids = testdata.loc[test_id, f'{label}_test']
+
+
+        # MOMA
+        auc_val = custom___train_test(
+            omic_layers = [mRNA, miRNA],
+            label_data_series = label_data[label],
+            tr_sample_list = list(train_sample_ids),
+            te_sample_list = list(test_sample_ids),
+            device = device
+        )
+        auc_columns[test_id] = auc_val
+
+    result_queue.put(
+        {
+            "label": label,
+            "auc": auc_columns,
+        }
+    )
+    logging.info(f"Finished evaluating label {label} on testdata")
+
+
+
