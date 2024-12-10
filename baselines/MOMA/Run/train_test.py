@@ -1,0 +1,149 @@
+# /*==========================================================================================*\
+# **                        _           _ _   _     _  _         _                            **
+# **                       | |__  _   _/ | |_| |__ | || |  _ __ | |__                         **
+# **                       | '_ \| | | | | __| '_ \| || |_| '_ \| '_ \                        **
+# **                       | |_) | |_| | | |_| | | |__   _| | | | | | |                       **
+# **                       |_.__/ \__,_|_|\__|_| |_|  |_| |_| |_|_| |_|                       **
+# \*==========================================================================================*/
+
+
+# -----------------------------------------------------------------------------------------------
+# Author: Bùi Tiến Thành - Tien-Thanh Bui (@bu1th4nh)
+# Title: train_test.py
+# Date: 2024/11/18 17:02:38
+# Description: 
+# 
+# (c) 2024 bu1th4nh. All rights reserved. 
+# Written with dedication in the University of Central Florida, EPCOT and the Magic Kingdom.
+# -----------------------------------------------------------------------------------------------
+
+import torch
+import logging
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+from typing import List, Dict, Any, Tuple, Union, Literal
+from sklearn.metrics import roc_auc_score,accuracy_score,confusion_matrix,recall_score,precision_score,precision_recall_curve,f1_score,auc
+
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.utils.data import  TensorDataset, DataLoader
+
+
+from model import mtlAttention32, EarlyStopping
+
+
+def custom___train_test(
+    omic_layers,
+    label_data_series,
+    tr_sample_list,
+    te_sample_list,
+    device,
+):
+    earlyStoppingPatience = 50
+    learningRate = 0.000005
+    weightDecay = 0.001
+    num_epochs = 50000 
+
+    y_train = label_data_series.loc[tr_sample_list].values.astype(int)
+    y_test = label_data_series.loc[te_sample_list].values.astype(int)
+
+    Xg = torch.tensor(omic_layers[0].T.loc[tr_sample_list].values, dtype=torch.float32).cuda(device=device)
+    Xg_test = torch.tensor(omic_layers[0].T.loc[te_sample_list].values, dtype=torch.float32).cuda(device=device)
+
+    Xm = torch.tensor(omic_layers[1].T.loc[tr_sample_list].values, dtype=torch.float32).cuda(device=device)
+    Xm_test = torch.tensor(omic_layers[1].T.loc[te_sample_list].values, dtype=torch.float32).cuda(device=device)
+
+    y = torch.tensor(y_train, dtype=torch.float32).cuda(device=device)
+
+    ds = TensorDataset(Xg, Xm,y)
+    loader  = DataLoader(ds, batch_size=y_train.shape[0],shuffle=True)
+
+    Xg_test = torch.tensor(Xg_test, dtype=torch.float32).cuda(device=device)
+    Xm_test = torch.tensor(Xm_test, dtype=torch.float32).cuda(device=device)
+
+    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    In_Nodes1 = omic_layers[0].shape[0] 
+    In_Nodes2 = omic_layers[1].shape[0]
+
+    # mtlAttention(In_Nodes1,In_Nodes2, # of module)
+    net = mtlAttention32(In_Nodes1,In_Nodes2,32)
+    net = net.to(device)
+    early_stopping = EarlyStopping(patience=earlyStoppingPatience, verbose=False)
+    optimizer = optim.Adam(net.parameters(), lr=learningRate, weight_decay=weightDecay)
+    loss_fn = nn.BCELoss()
+
+    for epoch in tqdm(range(num_epochs)):
+        running_loss1 = 0.0
+        running_loss2 = 0.0
+        for i, data in enumerate(loader, 0):
+            xg,xm, y = data
+            output1,output2 = net.forward_one(xg,xm)
+            output1  = output1.squeeze()
+            output2  = output2.squeeze()
+            net.train()
+            optimizer.zero_grad()
+            loss = loss_fn(output1, y) + loss_fn(output2, y) 
+            loss.backward(retain_graph=True)
+            optimizer.step()
+            running_loss1 += loss_fn(output1,y.view(-1)).item()
+            running_loss2 += loss_fn(output2,y.view(-1)).item()
+
+
+        early_stopping(running_loss1+running_loss2, net)
+        if early_stopping.early_stop:
+            print("Early stopping")
+            print("--------------------------------------------------------------------------------------------------")
+            break
+
+        if (epoch+1) % 2000 == 0 or epoch == 0:
+            if (epoch+1) % 2000 == 0 or epoch == 0:
+                print ('Epoch [{}/{}], Loss: {:.4f}, BCE_task1; {:.4f}, BCE_task2; {:.4f}'.format(epoch+1,num_epochs, running_loss1+running_loss2,running_loss1,running_loss2))
+
+    ### Test
+                
+    test1,test2 = net.forward_one(Xg_test.clone().detach(),Xm_test.clone().detach())
+    test1 = test1.cpu().detach().numpy()
+    test2 = test2.cpu().detach().numpy()
+
+
+    logging.info("ACC_task1 %.3f, ACC_task2 %.3f" %(accuracy_score(list(y_test),np.where(test1 > 0.5, 1, 0) ),accuracy_score(list(y_test),np.where(test2 > 0.5, 1, 0))))
+    logging.info("F1_task1 %.3f, F1_task2 %.3f" %(f1_score(list(y_test),np.where(test1 > 0.5, 1, 0)),f1_score(list(y_test),np.where(test2 > 0.5, 1, 0))))
+    logging.info("AUC_task1 %.3f, AUC_task2 %.3f" %(roc_auc_score(y_test.reshape(-1),test1),roc_auc_score(y_test.reshape(-1),test2)))
+
+    return np.mean([roc_auc_score(y_test.reshape(-1),test1),roc_auc_score(y_test.reshape(-1),test2)])
+
+
+
+
+def parallel_train_test(device, label_data, testdata, label, methods_list, mRNA, miRNA, result_queue):
+    auc_columns = {}
+    
+
+    # Iterate through each test
+    for test_id in tqdm(testdata.index, desc=f"Evaluating label {label} on testdata"):
+        # Get sample IDs
+        train_sample_ids = testdata.loc[test_id, f'{label}_train']
+        test_sample_ids = testdata.loc[test_id, f'{label}_test']
+
+
+        # MOMA
+        auc_val = custom___train_test(
+            omic_layers = [mRNA, miRNA],
+            label_data_series = label_data[label],
+            tr_sample_list = list(train_sample_ids),
+            te_sample_list = list(test_sample_ids),
+            device = device
+        )
+        auc_columns[test_id] = auc_val
+
+    result_queue.put(
+        {
+            "label": label,
+            "auc": auc_columns,
+        }
+    )
+    logging.info(f"Finished evaluating label {label} on testdata")

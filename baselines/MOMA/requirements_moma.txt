@@ -1,0 +1,16 @@
+numpy
+matplotlib
+scikit-learn
+pandas
+torch
+scipy
+seaborn
+
+s3fs
+tqdm
+mlflow
+pyarrow
+fastparquet
+openpyxl
+pymongo
+colorlog
