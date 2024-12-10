@@ -208,7 +208,7 @@ if __name__ == '__main__':
                 num_epoch = num_epoch,
                 result_queue = None,
             )
-            process.append(result_pack)
+            processes.append(result_pack)
     
 
     # -----------------------------------------------------------------------------------------------
