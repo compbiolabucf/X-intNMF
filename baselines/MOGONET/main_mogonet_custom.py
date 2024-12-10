@@ -185,6 +185,7 @@ if __name__ == '__main__':
                     lr_c, 
                     num_epoch_pretrain, 
                     num_epoch,
+                    result_queue,
                 )
             )    
 
@@ -205,6 +206,7 @@ if __name__ == '__main__':
                 lr_c = lr_c, 
                 num_epoch_pretrain = num_epoch_pretrain, 
                 num_epoch = num_epoch,
+                result_queue = None,
             )
             process.append(result_pack)
     

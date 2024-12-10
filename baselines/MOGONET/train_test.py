@@ -278,7 +278,9 @@ def custom___evaluate_one_target(
     lr_e, 
     lr_c, 
     num_epoch_pretrain, 
-    num_epoch
+    num_epoch,
+
+    result_queue = None
 ):
     # Prepping the data and result
     logging.info(f"Starting evaluation on target {target_name}")
@@ -321,10 +323,16 @@ def custom___evaluate_one_target(
         for data_field in result_for_one_test.keys():
             results.at[test_id, data_field] = result_for_one_test[data_field]
 
-    return {
-        'id': target_id,
-        'data': results.to_dict(orient='index')
-    }
+    if result_queue is not None:
+        return {
+            'id': target_id,
+            'data': results.to_dict(orient='index')
+        }
+    else:
+        result_queue.put({
+            'id': target_id,
+            'data': results.to_dict(orient='index')
+        })
 
             
             
