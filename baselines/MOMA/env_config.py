@@ -61,7 +61,7 @@ elif args.storage_mode == "s3":
     storage_options = {
         'key': 'bu1th4nh',
         'secret': 'ariel.anna.elsa',
-        'endpoint_url': 'http://localhost:19000',
+        'endpoint_url': 'http://localhost:9000',
     }
     s3 = s3fs.S3FileSystem(
         key=storage_options['key'],

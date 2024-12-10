@@ -40,7 +40,7 @@ from typing import List, Dict, Any, Tuple, Union, Literal
 
 
 from log_config import initialize_logging
-from train_test import custom___train_test, parallel_train_test, parallel_train_test_one_target
+from train_test import parallel_train_test_one_target
 
 
 
@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
     
     
-    logging.info("Starting MOGONET evaluation") 
+    logging.info("Starting MOMA evaluation") 
     # -----------------------------------------------------------------------------------------------
     # Run ID Retrieval
     # -----------------------------------------------------------------------------------------------
