@@ -234,6 +234,7 @@ if __name__ == '__main__':
 
         data_pack = {
             'run_id': run_id,
+            'run_name': run_name,
             'target_id': target_id,
             'summary': {}
         }
