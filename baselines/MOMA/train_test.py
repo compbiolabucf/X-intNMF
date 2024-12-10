@@ -36,7 +36,7 @@ from torch.utils.data import  TensorDataset, DataLoader
 from model import mtlAttention32, EarlyStopping
 
 
-def custom___eval_one_test(
+def custom___train_test(
     omic_layers,
     label_data_series,
     tr_sample_list,
@@ -119,65 +119,57 @@ def custom___eval_one_test(
 
 
 
-def parallel_train_test(device, label_data, testdata, label, methods_list, mRNA, miRNA, result_queue):
-    auc_columns = {}
-    
+
+
+
+def parallel_train_test_one_target(omic_layers: Union[List[pd.DataFrame], List[Dict[str, Dict]]], 
+    testdata: Union[pd.DataFrame, Dict[str, Dict]],
+    target_name: str,
+    armed_gpu: int,
+    target_id: str, 
+    result_queue: Any = None
+):
+    omic_layers = [pd.DataFrame.from_dict(x, orient='index') for x in omic_layers]
+    testdata = pd.DataFrame.from_dict(testdata, orient='index')
+    metrics = ['pred', 'prob', 'ACC', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC']
+    results = pd.DataFrame(index = testdata.index, columns = metrics) 
 
     # Iterate through each test
-    for test_id in tqdm(testdata.index, desc=f"Evaluating label {label} on testdata"):
+    for test_id in tqdm(testdata.index, desc=f"Evaluating label {target_name} on testdata"):
         # Get sample IDs
-        train_sample_ids = testdata.loc[test_id, f'{label}_train']
-        test_sample_ids = testdata.loc[test_id, f'{label}_test']
+        train_sample_ids = testdata.loc[test_id, f'train_sample_ids']
+        train_gnd_truth = testdata.loc[test_id, f'train_ground_truth']
+        test_sample_ids = testdata.loc[test_id, f'test_sample_ids']
+        test_gnd_truth = testdata.loc[test_id, f'test_ground_truth']
+        label_data_series = pd.Series(list(train_gnd_truth) + list(test_gnd_truth), index=list(train_sample_ids) + list(test_sample_ids))
 
 
         # MOMA
-        auc_val = custom___train_test(
-            omic_layers = [mRNA, miRNA],
-            label_data_series = label_data[label],
+        result_for_one_test = custom___train_test(
+            omic_layers = omic_layers,
+            label_data_series = label_data_series,
             tr_sample_list = list(train_sample_ids),
             te_sample_list = list(test_sample_ids),
-            device = device
+            device = armed_gpu
         )
-        auc_columns[test_id] = auc_val
 
-    result_queue.put(
-        {
-            "label": label,
-            "auc": auc_columns,
+
+        logging.info(f"{test_id}, target {target_id} completed")
+        # Store the result
+        for data_field in result_for_one_test.keys():
+            results.at[test_id, data_field] = result_for_one_test[data_field]
+
+    if result_queue is None:
+        return {
+            'id': target_id,
+            'data': results.to_dict(orient='index')
         }
-    )
-    logging.info(f"Finished evaluating label {label} on testdata")
-
-
-
-def parallel_train_test_one_target(device, label_data, testdata, label, mRNA, miRNA, result_queue):
-    auc_columns = {}
+    else:
+        result_queue.put({
+            'id': target_id,
+            'data': results.to_dict(orient='index')
+        })
     
-
-    # Iterate through each test
-    for test_id in tqdm(testdata.index, desc=f"Evaluating label {label} on testdata"):
-        # Get sample IDs
-        train_sample_ids = testdata.loc[test_id, f'{label}_train']
-        test_sample_ids = testdata.loc[test_id, f'{label}_test']
-
-
-        # MOMA
-        auc_val = custom___train_test(
-            omic_layers = [mRNA, miRNA],
-            label_data_series = label_data[label],
-            tr_sample_list = list(train_sample_ids),
-            te_sample_list = list(test_sample_ids),
-            device = device
-        )
-        auc_columns[test_id] = auc_val
-
-    result_queue.put(
-        {
-            "label": label,
-            "auc": auc_columns,
-        }
-    )
-    logging.info(f"Finished evaluating label {label} on testdata")
 
 
 
