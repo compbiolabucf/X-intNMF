@@ -237,7 +237,8 @@ if __name__ == '__main__':
                     data_pack['summary'][f'Max {metric}'] = np.max(result_pack[metric].values)
                     data_pack['summary'][f'Min {metric}'] = np.min(result_pack[metric].values)
 
-
+            logging.info(f"========================================================\n\n\n\n")
+            logging.info(f"Summary for target {target_id}")
             for key in data_pack['summary'].keys():
                 logging.info(f"{key}: {data_pack['summary'][key]}")
 

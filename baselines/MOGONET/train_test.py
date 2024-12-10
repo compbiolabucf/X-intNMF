@@ -255,7 +255,7 @@ def custom___eval_one_test(
 
     return {
         'pred': pd.Series(pred).astype(int).tolist(),
-        'prob': pd.Series(prob).astype(int).tolist(),
+        'prob': pd.Series(prob).astype(float).tolist(),
         'ACC': float(accuracy_score(Y_test, pred)),
         'REC': float(recall_score(Y_test, pred)),
         'F1': float(f1_score(Y_test, pred)),

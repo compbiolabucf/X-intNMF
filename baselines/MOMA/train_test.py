@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from typing import List, Dict, Any, Tuple, Union, Literal
-from sklearn.metrics import roc_auc_score,accuracy_score,confusion_matrix,recall_score,precision_score,precision_recall_curve,f1_score,auc
+from sklearn.metrics import roc_curve, auc, accuracy_score, recall_score, f1_score, matthews_corrcoef, roc_auc_score, average_precision_score
 
 
 import torch
@@ -95,13 +95,10 @@ def custom___train_test(
 
         early_stopping(running_loss1+running_loss2, net)
         if early_stopping.early_stop:
-            print("Early stopping")
-            print("--------------------------------------------------------------------------------------------------")
+            logging.info(f"Early stopping at epoch {epoch}")
+            logging.info("--------------------------------------------------------------------------------------------------")
             break
 
-        if (epoch+1) % 2000 == 0 or epoch == 0:
-            if (epoch+1) % 2000 == 0 or epoch == 0:
-                print ('Epoch [{}/{}], Loss: {:.4f}, BCE_task1; {:.4f}, BCE_task2; {:.4f}'.format(epoch+1,num_epochs, running_loss1+running_loss2,running_loss1,running_loss2))
 
                 
     ### Test
@@ -110,11 +107,21 @@ def custom___train_test(
     test2 = test2.cpu().detach().numpy()
 
 
-    logging.info("ACC_task1 %.3f, ACC_task2 %.3f" %(accuracy_score(list(y_test),np.where(test1 > 0.5, 1, 0) ),accuracy_score(list(y_test),np.where(test2 > 0.5, 1, 0))))
-    logging.info("F1_task1 %.3f, F1_task2 %.3f" %(f1_score(list(y_test),np.where(test1 > 0.5, 1, 0)),f1_score(list(y_test),np.where(test2 > 0.5, 1, 0))))
-    logging.info("AUC_task1 %.3f, AUC_task2 %.3f" %(roc_auc_score(y_test.reshape(-1),test1),roc_auc_score(y_test.reshape(-1),test2)))
+    prob = (test1 + test2)/2
+    pred = np.where(prob > 0.5, 1, 0) # Change the method from avg AUC to avg prob then predict
+    
+    return {
+        'pred': pd.Series(pred).astype(int).tolist(),
+        'prob': pd.Series(prob).astype(float).tolist(),
+        'ACC': float(accuracy_score(y_test, pred)),
+        'REC': float(recall_score(y_test, pred)),
+        'F1': float(f1_score(y_test, pred)),
+        'MCC': float(matthews_corrcoef(y_test, pred)),
+        'AUROC': float(roc_auc_score(y_test, prob)),
+        'AUPRC': float(average_precision_score(y_test, prob)),
+    }
 
-    return np.mean([roc_auc_score(y_test.reshape(-1),test1),roc_auc_score(y_test.reshape(-1),test2)])
+
 
 
 

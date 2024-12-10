@@ -8,48 +8,42 @@
 
 
 # -----------------------------------------------------------------------------------------------
-# Author: Bùi Tiến Thành - Tien-Thanh Bui (@bu1th4nh)
-# Title: main_mogonet_custom.py
-# Date: 2024/11/17 14:00:20
+# Main Author: Bùi Tiến Thành - Tien-Thanh Bui (@bu1th4nh)
+# Title: main_mcrgcn_custom.py
+# Date: 2024/11/23 20:44:50
 # Description: 
+#  - Main script for MCRGCN evaluation on custom dataset
+#  - This script is adapted from the original MCRGCN implementation
 # 
-# (c) 2024 bu1th4nh. All rights reserved. 
+# (c) 2024 original authors. All rights reserved. 
 # Written with dedication in the University of Central Florida, EPCOT and the Magic Kingdom.
 # -----------------------------------------------------------------------------------------------
+
 
 import os
 import sys
 import torch
-import random
 import mlflow
 import logging
+import random
 import pymongo
-import multiprocessing
 import numpy as np
 import pandas as pd
+import multiprocessing
 import torch.multiprocessing as mp
 from tqdm import tqdm
 from datetime import datetime
+from colorlog import ColoredFormatter
 from typing import List, Dict, Any, Tuple, Union, Literal
 
 
-from train_test import custom___evaluate_one_target
+
+from produce_adjacent_matrix import build_edge_list
+from train_test_custom import parallel_train_test_one_target
 from log_config import initialize_logging
 
 
-
 def randomize_run_name(): return f"{random.choice(royals_name)}_{random.choice(royals_name)}-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-# -----------------------------------------------------------------------------------------------
-# Patch NumPy
-# -----------------------------------------------------------------------------------------------
-import numpy
-def patch_asscalar(a):
-    return a.item()
-setattr(numpy, "asscalar", patch_asscalar)
-
-
-
-
 # -----------------------------------------------------------------------------------------------
 # Log Configuration
 # -----------------------------------------------------------------------------------------------
@@ -57,10 +51,11 @@ initialize_logging()
 
 
 
+
 # -----------------------------------------------------------------------------------------------
 # Run
 # -----------------------------------------------------------------------------------------------
-if __name__ == '__main__':
+if __name__ == "__main__":
     # -----------------------------------------------------------------------------------------------
     # General Configuration
     # -----------------------------------------------------------------------------------------------
@@ -69,10 +64,11 @@ if __name__ == '__main__':
     if args.parallel:
         multiprocessing.set_start_method("spawn", force=True)
         mp.set_start_method("spawn", force=True)
-    
 
 
 
+    run_name = 'baseline_MCRGCN' if args.run_mode != "test" else randomize_run_name()
+    logging.info(f"Starting MCRGCN evaluation on {args.run_mode} mode, storage mode {args.storage_mode}")
     # -----------------------------------------------------------------------------------------------
     # MongoDB
     # -----------------------------------------------------------------------------------------------
@@ -86,14 +82,8 @@ if __name__ == '__main__':
     collection = mongo_db[str(args.run_mode).upper()]
 
 
+
     def find_run(collection, run_id: str, target_id: str): return collection.find_one({'run_id': run_id, 'target_id': target_id})
-    # -----------------------------------------------------------------------------------------------
-    # Setup
-    # -----------------------------------------------------------------------------------------------
-    initialize_logging(log_filename = 'classification.log')
-    logging.info(f"Starting classification evaluation on {args.run_mode} mode, storage mode {args.storage_mode}")
-
-
     # -----------------------------------------------------------------------------------------------
     # MLFlow
     # -----------------------------------------------------------------------------------------------
@@ -101,18 +91,6 @@ if __name__ == '__main__':
     mlflow.set_experiment(experiment_name)
 
 
-    
-
-    # -----------------------------------------------------------------------------------------------
-    # Hyperparameters
-    # -----------------------------------------------------------------------------------------------
-    run_name = 'baseline_MOGONET' if args.run_mode != "test" else randomize_run_name()
-    adj_parameter = 10 # Retain BRCA config from MOGONET
-    num_epoch_pretrain = 500
-    num_epoch = 2500
-    lr_e_pretrain = 1e-3
-    lr_e = 5e-4
-    lr_c = 1e-3
 
 
     # -----------------------------------------------------------------------------------------------
@@ -122,11 +100,19 @@ if __name__ == '__main__':
     mRNA = pd.read_parquet(f"{DATA_PATH}/mRNA.parquet", storage_options=storage_options)
     target_folders = [f's3://{a}' for a in s3.ls(TARG_PATH)] if s3 is not None else os.listdir(TARG_PATH)
 
-    
 
-    
-    
-    logging.info("Starting MOGONET evaluation") 
+
+    # -----------------------------------------------------------------------------------------------
+    # Sample Sim.matrix
+    # -----------------------------------------------------------------------------------------------
+    mRNA_sim = build_edge_list(mRNA.T, 0.35)
+    miRNA_sim = build_edge_list(miRNA.T, 0.42)
+    mRNA_sim = mRNA_sim[['id_x', 'id_y']].values
+    miRNA_sim = miRNA_sim[['id_x', 'id_y']].values
+        
+
+
+
     # -----------------------------------------------------------------------------------------------
     # Run ID Retrieval
     # -----------------------------------------------------------------------------------------------
@@ -134,7 +120,6 @@ if __name__ == '__main__':
     possible_run_ids = all_runs[all_runs['tags.mlflow.runName'] == run_name]
     run_id = possible_run_ids['run_id'].values[0] if len(possible_run_ids) > 0 else None
 
-    
 
 
     # -----------------------------------------------------------------------------------------------
@@ -147,7 +132,6 @@ if __name__ == '__main__':
         result_queue = []
 
 
-    
     # -----------------------------------------------------------------------------------------------
     # Evaluation
     # -----------------------------------------------------------------------------------------------
@@ -165,19 +149,13 @@ if __name__ == '__main__':
         # Evaluate
         if args.parallel:
             process = mp.Process(
-                target = custom___evaluate_one_target,
+                target = parallel_train_test_one_target,
                 args = (
                     [mRNA.to_dict(orient='index'), miRNA.to_dict(orient='index')],
+                    [mRNA_sim, miRNA_sim],
                     test_data.to_dict(orient='index'),
-                    target_id,
                     armed_gpu,
                     target_id,
-                    adj_parameter,
-                    lr_e_pretrain, 
-                    lr_e, 
-                    lr_c, 
-                    num_epoch_pretrain, 
-                    num_epoch,
                     result_queue,
                 )
             )    
@@ -186,20 +164,13 @@ if __name__ == '__main__':
             process.start()
             processes.append(process)
         else:
-            sequential_result = custom___evaluate_one_target(
+            sequential_result = parallel_train_test_one_target(
                 omic_layers=[mRNA.to_dict(orient='index'), miRNA.to_dict(orient='index')],
-                testdata=test_data.to_dict(orient='index'),
-                target_name=target_id,
+                omic_sims=[mRNA_sim, miRNA_sim],
+                test_data=test_data.to_dict(orient='index'),
                 armed_gpu=armed_gpu,
                 target_id=target_id,
-
-                adj_parameter = adj_parameter,
-                lr_e_pretrain = lr_e_pretrain, 
-                lr_e = lr_e, 
-                lr_c = lr_c, 
-                num_epoch_pretrain = num_epoch_pretrain, 
-                num_epoch = num_epoch,
-                result_queue = None,
+                result_queue=None,
             )
             result_queue.append(sequential_result)
             logging.info(f"Finished evaluation for target {target_id}")
@@ -267,10 +238,11 @@ if __name__ == '__main__':
 
             # Save to MongoDB
             collection.insert_one(data_pack)
-        
+    
 
 
 
+    
 
 
 

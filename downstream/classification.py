@@ -85,7 +85,7 @@ def evaluate_one_target(H, testdata, methods_list, target):
 
             # Store the result
             results[cls_method].at[test_id, 'pred'] = pd.Series(pred).astype(int).tolist()
-            results[cls_method].at[test_id, 'prob'] = pd.Series(prob).astype(int).tolist()
+            results[cls_method].at[test_id, 'prob'] = pd.Series(prob).astype(float).tolist()
             results[cls_method].at[test_id, 'ACC'] = float(ACC)
             results[cls_method].at[test_id, 'REC'] = float(REC)
             results[cls_method].at[test_id, 'F1'] = float(F1)
