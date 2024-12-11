@@ -108,8 +108,8 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------
     run_name = 'baseline_MOGONET' if args.run_mode != "test" else randomize_run_name()
     adj_parameter = 10 # Retain BRCA config from MOGONET
-    num_epoch_pretrain = 500
-    num_epoch = 2500
+    num_epoch_pretrain = 500 if args.run_mode != "test" else 30
+    num_epoch = 2500 if args.run_mode != "test" else 30
     lr_e_pretrain = 1e-3
     lr_e = 5e-4
     lr_c = 1e-3
@@ -179,6 +179,7 @@ if __name__ == '__main__':
                     num_epoch_pretrain, 
                     num_epoch,
                     result_queue,
+                    (args.run_mode == "test")
                 )
             )    
 
@@ -200,6 +201,7 @@ if __name__ == '__main__':
                 num_epoch_pretrain = num_epoch_pretrain, 
                 num_epoch = num_epoch,
                 result_queue = None,
+                test_mode = (args.run_mode == "test")
             )
             result_queue.append(sequential_result)
             logging.info(f"Finished evaluation for target {target_id}")
@@ -208,13 +210,16 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------
     # Sync processes
     # -----------------------------------------------------------------------------------------------
+    logging.info(f"Waiting for processes to finish")
     if args.parallel:
         for process in tqdm(processes, desc="Waiting for processes to finish"):
             process.join()
         parallel_results = []
         while not result_queue.empty():
             parallel_results.append(result_queue.get())
+            logging.info(f'Target {parallel_results[-1]["id"]} completed')
         result_queue = parallel_results
+    logging.info(f"All processes finished")
 
 
 

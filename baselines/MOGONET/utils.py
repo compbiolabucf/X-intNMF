@@ -2,6 +2,7 @@ import os
 import numpy as np
 import torch
 import torch.nn.functional as F
+import logging
 
 cuda = True if torch.cuda.is_available() else False
 
@@ -40,6 +41,7 @@ def to_sparse(x):
         return sparse_tensortype(*x.shape)
     indices = indices.t()
     values = x[tuple(indices[i] for i in range(indices.shape[0]))]
+    # logging.fatal(sparse_tensortype)
     return sparse_tensortype(indices, values, x.size())
 
 

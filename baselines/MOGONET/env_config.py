@@ -92,7 +92,7 @@ elif args.run_mode == "brca":
 elif args.run_mode == "test":
     experiment_name = 'test_experiment'
     base_path = f'{DATA_PATH}/BreastCancer'
-    DATA_PATH = f'{base_path}/processed_crossOmics_micro'
+    DATA_PATH = f'{base_path}/processed_crossOmics'
     TARG_PATH = f'{base_path}/clinical_testdata'
     RESULT_PRE_PATH += 'brca'
 else: raise ValueError("Invalid run mode")

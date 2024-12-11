@@ -212,7 +212,7 @@ def custom___eval_one_test(
     num_view = len(omic_layers)
     dim_hvcdn = pow(num_class,num_view)
 
-    logging.fatal(f"dim_hvcdn: {dim_hvcdn}")
+    # logging.fatal(f"dim_hvcdn: {dim_hvcdn}")
 
 
     labels_tr_tensor = torch.LongTensor(labels_trte[trte_idx["tr"]])
@@ -280,18 +280,20 @@ def custom___evaluate_one_target(
     num_epoch_pretrain, 
     num_epoch,
 
-    result_queue = None
+    result_queue = None,
+    test_mode = False
 ):
     # Prepping the data and result
     logging.info(f"Starting evaluation on target {target_name}")
 
     omic_layers = [pd.DataFrame.from_dict(x, orient='index') for x in omic_layers]
     testdata = pd.DataFrame.from_dict(testdata, orient='index')
+    test_ids = list(testdata.index)[:2] if test_mode else list(testdata.index)
     metrics = ['pred', 'prob', 'ACC', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC']
-    results = pd.DataFrame(index = testdata.index, columns = metrics) 
+    results = pd.DataFrame(index = test_ids, columns = metrics) 
 
     # Iterate through each test
-    for test_id in tqdm(list(testdata.index), desc=f"Evaluating target {testdata} on testdata, GPU {armed_gpu}"):
+    for test_id in tqdm(test_ids, desc=f"Evaluating target {target_name} on testdata, GPU {armed_gpu}"):
         # Get sample IDs
         train_sample_ids = testdata.loc[test_id, f'train_sample_ids']
         train_gnd_truth = testdata.loc[test_id, f'train_ground_truth']
@@ -318,10 +320,10 @@ def custom___evaluate_one_target(
             num_epoch
         )
 
-        logging.info(f"{test_id}, target {target_id} completed")
         # Store the result
         for data_field in result_for_one_test.keys():
             results.at[test_id, data_field] = result_for_one_test[data_field]
+        logging.info(f"{test_id}, target {target_id} completed")
 
     if result_queue is None:
         return {
@@ -333,8 +335,5 @@ def custom___evaluate_one_target(
             'id': target_id,
             'data': results.to_dict(orient='index')
         })
-
-            
-            
-
-
+        logging.info(f"Target {target_id} results sent to queue")
+        return

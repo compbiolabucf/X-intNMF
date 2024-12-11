@@ -138,11 +138,13 @@ def parallel_train_test_one_target(omic_layers: Union[List[pd.DataFrame], List[D
 ):
     omic_layers = [pd.DataFrame.from_dict(x, orient='index') for x in omic_layers]
     testdata = pd.DataFrame.from_dict(testdata, orient='index')
+    test_ids = list(testdata.index)
+
     metrics = ['pred', 'prob', 'ACC', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC']
-    results = pd.DataFrame(index = testdata.index, columns = metrics) 
+    results = pd.DataFrame(index = test_ids, columns = metrics) 
 
     # Iterate through each test
-    for test_id in tqdm(testdata.index, desc=f"Evaluating label {target_name} on testdata"):
+    for test_id in tqdm(test_ids, desc=f"Evaluating label {target_name} on testdata"):
         # Get sample IDs
         train_sample_ids = testdata.loc[test_id, f'train_sample_ids']
         train_gnd_truth = testdata.loc[test_id, f'train_ground_truth']
