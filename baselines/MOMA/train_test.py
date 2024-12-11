@@ -42,11 +42,12 @@ def custom___train_test(
     tr_sample_list,
     te_sample_list,
     device,
+    test_mode = False
 ):
     earlyStoppingPatience = 50
     learningRate = 0.000005
     weightDecay = 0.001
-    num_epochs = 50000 
+    num_epochs = 50000 if not test_mode else 20
 
     y_train = label_data_series.loc[tr_sample_list].values.astype(int)
     y_test = label_data_series.loc[te_sample_list].values.astype(int)
@@ -134,11 +135,12 @@ def parallel_train_test_one_target(omic_layers: Union[List[pd.DataFrame], List[D
     target_name: str,
     armed_gpu: int,
     target_id: str, 
-    result_queue: Any = None
+    result_queue: Any = None,
+    test_mode: bool = False,
 ):
     omic_layers = [pd.DataFrame.from_dict(x, orient='index') for x in omic_layers]
     testdata = pd.DataFrame.from_dict(testdata, orient='index')
-    test_ids = list(testdata.index)
+    test_ids = list(testdata.index) if not test_mode else list(testdata.index)[:2]
 
     metrics = ['pred', 'prob', 'ACC', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC']
     results = pd.DataFrame(index = test_ids, columns = metrics) 
@@ -159,7 +161,8 @@ def parallel_train_test_one_target(omic_layers: Union[List[pd.DataFrame], List[D
             label_data_series = label_data_series,
             tr_sample_list = list(train_sample_ids),
             te_sample_list = list(test_sample_ids),
-            device = armed_gpu
+            device = armed_gpu,
+            test_mode = test_mode
         )
 
 
@@ -178,6 +181,7 @@ def parallel_train_test_one_target(omic_layers: Union[List[pd.DataFrame], List[D
             'id': target_id,
             'data': results.to_dict(orient='index')
         })
+        return
     
 
 

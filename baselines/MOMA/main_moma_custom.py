@@ -168,6 +168,7 @@ if __name__ == '__main__':
                     target_id,
 
                     result_queue,
+                    (args.run_mode == "test")
                 )
             )    
 
@@ -183,6 +184,7 @@ if __name__ == '__main__':
                 target_id=target_id,
                 
                 result_queue = None,
+                test_mode = (args.run_mode == "test")
             )
             result_queue.append(sequential_result)
             logging.info(f"Finished evaluation for target {target_id}")
