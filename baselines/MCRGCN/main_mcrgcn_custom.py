@@ -213,6 +213,7 @@ if __name__ == "__main__":
                 'run_id': run_id,
                 'run_name': run_name,
                 'target_id': target_id,
+                'MCRGCN': result['data'],
                 'summary': {}
             }
             
