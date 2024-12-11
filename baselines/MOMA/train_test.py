@@ -107,8 +107,8 @@ def custom___train_test(
     test2 = test2.cpu().detach().numpy()
 
 
-    prob = (test1 + test2)/2
-    pred = np.where(prob > 0.5, 1, 0) # Change the method from avg AUC to avg prob then predict
+    prob = np.array((test1 + test2)/2).reshape(-1)
+    pred = np.array(np.where(prob > 0.5, 1, 0)).reshape(-1) # Change the method from avg AUC to avg prob then predict
     
     return {
         'pred': pd.Series(pred).astype(int).tolist(),
