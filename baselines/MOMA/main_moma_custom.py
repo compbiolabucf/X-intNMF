@@ -12,12 +12,12 @@
 # Title: main_moma_custom.py
 # Date: 2024/11/21 14:13:34
 # Description: 
+#  - Main script for MOMA evaluation on custom dataset
+#  - This script is adapted from the original MOMA implementation
 # 
 # (c) 2024 bu1th4nh. All rights reserved. 
 # Written with dedication in the University of Central Florida, EPCOT and the Magic Kingdom.
 # -----------------------------------------------------------------------------------------------
-
-
 
 
 import os
@@ -43,7 +43,6 @@ from log_config import initialize_logging
 from train_test import parallel_train_test_one_target
 
 
-
 def randomize_run_name(): return f"{random.choice(royals_name)}_{random.choice(royals_name)}-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 # -----------------------------------------------------------------------------------------------
 # Patch NumPy
@@ -54,8 +53,6 @@ def patch_asscalar(a):
 setattr(numpy, "asscalar", patch_asscalar)
 
 
-
-
 # -----------------------------------------------------------------------------------------------
 # Log Configuration
 # -----------------------------------------------------------------------------------------------
@@ -64,6 +61,10 @@ initialize_logging()
 
 
 
+
+# -----------------------------------------------------------------------------------------------
+# Run
+# -----------------------------------------------------------------------------------------------
 if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------
     # General Configuration
@@ -74,9 +75,10 @@ if __name__ == '__main__':
         multiprocessing.set_start_method("spawn", force=True)
         mp.set_start_method("spawn", force=True)
 
-   
 
 
+    run_name = 'baseline_MOMA' if args.run_mode != "test" else randomize_run_name()
+    logging.info(f"Starting MOMA evaluation on {args.run_mode} mode, storage mode {args.storage_mode}")
     # -----------------------------------------------------------------------------------------------
     # MongoDB
     # -----------------------------------------------------------------------------------------------
@@ -90,14 +92,8 @@ if __name__ == '__main__':
     collection = mongo_db[str(args.run_mode).upper()]
 
 
+
     def find_run(collection, run_id: str, target_id: str): return collection.find_one({'run_id': run_id, 'target_id': target_id})
-    # -----------------------------------------------------------------------------------------------
-    # Setup
-    # -----------------------------------------------------------------------------------------------
-    initialize_logging(log_filename = 'classification.log')
-    logging.info(f"Starting classification evaluation on {args.run_mode} mode, storage mode {args.storage_mode}")
-
-
     # -----------------------------------------------------------------------------------------------
     # MLFlow
     # -----------------------------------------------------------------------------------------------
@@ -105,11 +101,17 @@ if __name__ == '__main__':
     mlflow.set_experiment(experiment_name)
 
 
+
     
     # -----------------------------------------------------------------------------------------------
     # Hyperparameters
     # -----------------------------------------------------------------------------------------------
-    run_name = 'baseline_MOMA' if args.run_mode != "test" else randomize_run_name()
+
+
+
+
+
+
 
 
     # -----------------------------------------------------------------------------------------------
@@ -119,15 +121,24 @@ if __name__ == '__main__':
     mRNA = pd.read_parquet(f"{DATA_PATH}/mRNA.parquet", storage_options=storage_options)
     target_folders = [f's3://{a}' for a in s3.ls(TARG_PATH)] if s3 is not None else os.listdir(TARG_PATH)
 
-    
-    
-    logging.info("Starting MOMA evaluation") 
+
+
+    # -----------------------------------------------------------------------------------------------
+    # Additional Configuration
+    # -----------------------------------------------------------------------------------------------
+
+
+
+
+
+
     # -----------------------------------------------------------------------------------------------
     # Run ID Retrieval
     # -----------------------------------------------------------------------------------------------
     all_runs = mlflow.search_runs()[['run_id', 'tags.mlflow.runName']]
     possible_run_ids = all_runs[all_runs['tags.mlflow.runName'] == run_name]
     run_id = possible_run_ids['run_id'].values[0] if len(possible_run_ids) > 0 else None
+
 
 
 

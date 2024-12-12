@@ -12,10 +12,13 @@
 # Title: main_mogonet_custom.py
 # Date: 2024/11/17 14:00:20
 # Description: 
+#  - Main script for MOGONET evaluation on custom dataset
+#  - This script is adapted from the original MOGONET implementation
 # 
 # (c) 2024 bu1th4nh. All rights reserved. 
 # Written with dedication in the University of Central Florida, EPCOT and the Magic Kingdom.
 # -----------------------------------------------------------------------------------------------
+
 
 import os
 import sys
@@ -31,6 +34,8 @@ import torch.multiprocessing as mp
 from tqdm import tqdm
 from datetime import datetime
 from typing import List, Dict, Any, Tuple, Union, Literal
+
+
 
 
 from train_test import custom___evaluate_one_target
@@ -72,7 +77,8 @@ if __name__ == '__main__':
     
 
 
-
+    run_name = 'baseline_MOGONET' if args.run_mode != "test" else randomize_run_name()
+    logging.info(f"Starting MOGONET evaluation on {args.run_mode} mode, storage mode {args.storage_mode}")
     # -----------------------------------------------------------------------------------------------
     # MongoDB
     # -----------------------------------------------------------------------------------------------
@@ -86,14 +92,8 @@ if __name__ == '__main__':
     collection = mongo_db[str(args.run_mode).upper()]
 
 
+
     def find_run(collection, run_id: str, target_id: str): return collection.find_one({'run_id': run_id, 'target_id': target_id})
-    # -----------------------------------------------------------------------------------------------
-    # Setup
-    # -----------------------------------------------------------------------------------------------
-    initialize_logging(log_filename = 'classification.log')
-    logging.info(f"Starting classification evaluation on {args.run_mode} mode, storage mode {args.storage_mode}")
-
-
     # -----------------------------------------------------------------------------------------------
     # MLFlow
     # -----------------------------------------------------------------------------------------------
@@ -106,7 +106,6 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------
     # Hyperparameters
     # -----------------------------------------------------------------------------------------------
-    run_name = 'baseline_MOGONET' if args.run_mode != "test" else randomize_run_name()
     adj_parameter = 10 # Retain BRCA config from MOGONET
     num_epoch_pretrain = 500 if args.run_mode != "test" else 3
     num_epoch = 2500 if args.run_mode != "test" else 3
@@ -124,9 +123,15 @@ if __name__ == '__main__':
 
     
 
-    
-    
-    logging.info("Starting MOGONET evaluation") 
+    # -----------------------------------------------------------------------------------------------
+    # Additional Configuration
+    # -----------------------------------------------------------------------------------------------
+
+
+
+
+
+
     # -----------------------------------------------------------------------------------------------
     # Run ID Retrieval
     # -----------------------------------------------------------------------------------------------
