@@ -17,7 +17,7 @@ cd ~/Projects/SimilarSampleCrossOmicNMF/baselines/MOGONET/
 source .mogonet.env/bin/activate
 
 # SSH tunneling
-ssh ~/.ssh/UCF-HEC301-14 -N -f
+ssh HEC-301-14-Server -N -f
 
 # Run the script
 srun python main_mogonet_custom.py --storage_mode s3 --run_mode test --parallel True
