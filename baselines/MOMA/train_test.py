@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from typing import List, Dict, Any, Tuple, Union, Literal
-from sklearn.metrics import roc_curve, auc, accuracy_score, recall_score, f1_score, matthews_corrcoef, roc_auc_score, average_precision_score
+from sklearn.metrics import roc_curve, auc, accuracy_score, recall_score, f1_score, matthews_corrcoef, roc_auc_score, average_precision_score, precision_score
 
 
 import torch
@@ -115,6 +115,7 @@ def custom___train_test(
         'pred': pd.Series(pred).astype(int).tolist(),
         'prob': pd.Series(prob).astype(float).tolist(),
         'ACC': float(accuracy_score(y_test, pred)),
+        'PRE': float(precision_score(y_test, pred)),
         'REC': float(recall_score(y_test, pred)),
         'F1': float(f1_score(y_test, pred)),
         'MCC': float(matthews_corrcoef(y_test, pred)),
@@ -140,10 +141,8 @@ def parallel_train_test_one_target(omic_layers: Union[List[pd.DataFrame], List[D
 ):
     omic_layers = [pd.DataFrame.from_dict(x, orient='index') for x in omic_layers]
     testdata = pd.DataFrame.from_dict(testdata, orient='index')
-    test_ids = list(testdata.index) if not test_mode else list(testdata.index)[:2]
-
-    metrics = ['pred', 'prob', 'ACC', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC']
-    results = pd.DataFrame(index = test_ids, columns = metrics) 
+    test_ids = list(testdata.index) if not test_mode else list(testdata.index)
+    results = {}
 
     # Iterate through each test
     for test_id in tqdm(test_ids, desc=f"Evaluating label {target_name} on testdata"):
@@ -168,18 +167,17 @@ def parallel_train_test_one_target(omic_layers: Union[List[pd.DataFrame], List[D
 
         logging.info(f"{test_id}, target {target_id} completed")
         # Store the result
-        for data_field in result_for_one_test.keys():
-            results.at[test_id, data_field] = result_for_one_test[data_field]
+        results[test_id] = result_for_one_test
 
     if result_queue is None:
         return {
             'id': target_id,
-            'data': results.to_dict(orient='index')
+            'data': results
         }
     else:
         result_queue.put({
             'id': target_id,
-            'data': results.to_dict(orient='index')
+            'data': results
         })
         return
     

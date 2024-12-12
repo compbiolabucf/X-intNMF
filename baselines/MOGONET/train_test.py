@@ -2,7 +2,7 @@
 """
 import os
 import numpy as np
-from sklearn.metrics import roc_curve, auc, accuracy_score, recall_score, f1_score, matthews_corrcoef, roc_auc_score, average_precision_score
+from sklearn.metrics import roc_curve, auc, accuracy_score, recall_score, f1_score, matthews_corrcoef, roc_auc_score, average_precision_score, precision_score
 import torch
 import torch.nn.functional as F
 from models import init_model_dict, init_optim
@@ -35,7 +35,7 @@ def prepare_trte_data(data_folder, view_list, armed_gpu):
     data_tensor_list = []
     for i in range(len(data_mat_list)):
         data_tensor_list.append(torch.FloatTensor(data_mat_list[i]))
-        if cuda:
+        if torch.cuda.is_available():
             data_tensor_list[i] = data_tensor_list[i].cuda(device = armed_gpu)
     idx_dict = {}
     idx_dict["tr"] = list(range(num_tr))
@@ -137,7 +137,7 @@ def train_test(data_folder, view_list, num_class,
     sample_weight_tr = torch.FloatTensor(sample_weight_tr)
 
     
-    if cuda:
+    if torch.cuda.is_available():
         labels_tr_tensor = labels_tr_tensor.cuda(device = armed_gpu)
         onehot_labels_tr_tensor = onehot_labels_tr_tensor.cuda(device = armed_gpu)
         sample_weight_tr = sample_weight_tr.cuda(device = armed_gpu)
@@ -145,7 +145,7 @@ def train_test(data_folder, view_list, num_class,
     dim_list = [x.shape[1] for x in data_tr_list]
     model_dict = init_model_dict(num_view, num_class, dim_list, dim_he_list, dim_hvcdn)
     for m in model_dict:
-        if cuda:
+        if torch.cuda.is_available():
             model_dict[m].cuda(device = armed_gpu)
     
     print("\nPretrain GCNs...")
@@ -221,7 +221,7 @@ def custom___eval_one_test(
     sample_weight_tr = torch.FloatTensor(sample_weight_tr)
 
     
-    if cuda:
+    if torch.cuda.is_available():
         labels_tr_tensor = labels_tr_tensor.cuda(device = armed_gpu)
         onehot_labels_tr_tensor = onehot_labels_tr_tensor.cuda(device = armed_gpu)
         sample_weight_tr = sample_weight_tr.cuda(device = armed_gpu)
@@ -230,18 +230,18 @@ def custom___eval_one_test(
     dim_list = [x.shape[1] for x in data_tr_list]
     model_dict = init_model_dict(num_view, num_class, dim_list, dim_he_list, dim_hvcdn)
     for m in model_dict:
-        if cuda:
+        if torch.cuda.is_available():
             model_dict[m].cuda(device = armed_gpu)
 
     
-    print("\nPretrain GCNs...")
+    # print("\nPretrain GCNs...")
     optim_dict = init_optim(num_view, model_dict, lr_e_pretrain, lr_c)
     for epoch in tqdm(range(num_epoch_pretrain), desc=f"Pretrain GCNs, GPU {armed_gpu}, target {target_id}"):
         train_epoch(data_tr_list, adj_tr_list, labels_tr_tensor, 
                     onehot_labels_tr_tensor, sample_weight_tr, model_dict, optim_dict, train_VCDN=False)
         
 
-    print("\nTraining...")
+    # print("\nTraining...")
     optim_dict = init_optim(num_view, model_dict, lr_e, lr_c)
     for epoch in tqdm(range(num_epoch+1), desc=f"Training MOGONET, GPU {armed_gpu}, target {target_id}"):
         train_epoch(data_tr_list, adj_tr_list, labels_tr_tensor, 
@@ -257,6 +257,7 @@ def custom___eval_one_test(
         'pred': pd.Series(pred).astype(int).tolist(),
         'prob': pd.Series(prob).astype(float).tolist(),
         'ACC': float(accuracy_score(Y_test, pred)),
+        'PRE': float(precision_score(Y_test, pred)),
         'REC': float(recall_score(Y_test, pred)),
         'F1': float(f1_score(Y_test, pred)),
         'MCC': float(matthews_corrcoef(Y_test, pred)),
@@ -288,9 +289,8 @@ def custom___evaluate_one_target(
 
     omic_layers = [pd.DataFrame.from_dict(x, orient='index') for x in omic_layers]
     testdata = pd.DataFrame.from_dict(testdata, orient='index')
-    test_ids = list(testdata.index)[:2] if test_mode else list(testdata.index)
-    metrics = ['pred', 'prob', 'ACC', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC']
-    results = pd.DataFrame(index = test_ids, columns = metrics) 
+    test_ids = list(testdata.index) if test_mode else list(testdata.index)
+    results = {}
 
     # Iterate through each test
     for test_id in tqdm(test_ids, desc=f"Evaluating target {target_name} on testdata, GPU {armed_gpu}"):
@@ -321,19 +321,28 @@ def custom___evaluate_one_target(
         )
 
         # Store the result
-        for data_field in result_for_one_test.keys():
-            results.at[test_id, data_field] = result_for_one_test[data_field]
+        results[test_id] = result_for_one_test
         logging.info(f"{test_id}, target {target_id} completed")
+
+        del label_data_series
+
+
+    del omic_layers 
+    del testdata
+
+    logging.fatal(result_queue)
+    # logging.fatal(results)
+    
 
     if result_queue is None:
         return {
             'id': target_id,
-            'data': results.to_dict(orient='index')
+            'data': results
         }
     else:
         result_queue.put({
             'id': target_id,
-            'data': results.to_dict(orient='index')
+            'data': results
         })
         logging.info(f"Target {target_id} results sent to queue")
         return

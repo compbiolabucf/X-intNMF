@@ -108,8 +108,8 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------
     run_name = 'baseline_MOGONET' if args.run_mode != "test" else randomize_run_name()
     adj_parameter = 10 # Retain BRCA config from MOGONET
-    num_epoch_pretrain = 500 if args.run_mode != "test" else 30
-    num_epoch = 2500 if args.run_mode != "test" else 30
+    num_epoch_pretrain = 500 if args.run_mode != "test" else 3
+    num_epoch = 2500 if args.run_mode != "test" else 3
     lr_e_pretrain = 1e-3
     lr_e = 5e-4
     lr_c = 1e-3
@@ -178,11 +178,11 @@ if __name__ == '__main__':
                     lr_c, 
                     num_epoch_pretrain, 
                     num_epoch,
+
                     result_queue,
                     (args.run_mode == "test")
                 )
             )    
-
             logging.info(f"Starting process for target {target_id} on device {armed_gpu}")
             process.start()
             processes.append(process)
@@ -200,6 +200,7 @@ if __name__ == '__main__':
                 lr_c = lr_c, 
                 num_epoch_pretrain = num_epoch_pretrain, 
                 num_epoch = num_epoch,
+
                 result_queue = None,
                 test_mode = (args.run_mode == "test")
             )
@@ -210,16 +211,25 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------
     # Sync processes
     # -----------------------------------------------------------------------------------------------
-    logging.info(f"Waiting for processes to finish")
     if args.parallel:
+        logging.info(f"Waiting for processes to finish")
+        parallel_results = []
+        while any(p.is_alive() for p in processes) or not result_queue.empty():
+            try:
+                res = result_queue.get(timeout=0.5)
+                parallel_results.append(res)
+                # logging.fatal(f"Parallel results bef: {len(parallel_results)}")
+                del res
+                logging.info(f'Target {parallel_results[-1]["id"]} completed')
+                # logging.fatal(f"Parallel results aft: {len(parallel_results)}")
+            except Exception as e:
+                pass
+        result_queue = parallel_results
         for process in tqdm(processes, desc="Waiting for processes to finish"):
             process.join()
-        parallel_results = []
-        while not result_queue.empty():
-            parallel_results.append(result_queue.get())
-            logging.info(f'Target {parallel_results[-1]["id"]} completed')
-        result_queue = parallel_results
-    logging.info(f"All processes finished")
+        logging.info(f"All processes finished")
+
+        
 
 
 

@@ -31,7 +31,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import AdaBoostClassifier
-from sklearn.metrics import roc_curve, auc, accuracy_score, recall_score, f1_score, matthews_corrcoef, roc_auc_score, average_precision_score
+from sklearn.metrics import roc_curve, auc, accuracy_score, recall_score, f1_score, matthews_corrcoef, roc_auc_score, average_precision_score, precision_score
 from sklearn.svm import SVC
 
 from tqdm import tqdm
@@ -43,7 +43,7 @@ def evaluate_one_target(H, testdata, methods_list, target):
     # Prepping the data and result
     logging.info("Starting evaluation")
 
-    metrics = ['pred', 'prob', 'ACC', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC']
+    metrics = ['pred', 'prob', 'ACC', 'PRE', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC']
     results = {
         method: pd.DataFrame(index = testdata.index, columns = metrics) 
         for method in methods_list
@@ -77,6 +77,7 @@ def evaluate_one_target(H, testdata, methods_list, target):
 
             # Metrics
             ACC = accuracy_score(Y_test, pred)
+            PRE = precision_score(Y_test, pred)
             REC = recall_score(Y_test, pred)
             F1 = f1_score(Y_test, pred)
             MCC = matthews_corrcoef(Y_test, pred)
@@ -87,6 +88,7 @@ def evaluate_one_target(H, testdata, methods_list, target):
             results[cls_method].at[test_id, 'pred'] = pd.Series(pred).astype(int).tolist()
             results[cls_method].at[test_id, 'prob'] = pd.Series(prob).astype(float).tolist()
             results[cls_method].at[test_id, 'ACC'] = float(ACC)
+            results[cls_method].at[test_id, 'PRE'] = float(PRE)
             results[cls_method].at[test_id, 'REC'] = float(REC)
             results[cls_method].at[test_id, 'F1'] = float(F1)
             results[cls_method].at[test_id, 'MCC'] = float(MCC)

@@ -102,14 +102,15 @@ if __name__ == '__main__':
 
             for metric in result_pack[method].columns:
                 if str(metric).isupper():
-                    # Assume all metrics are upper case-noted columns
-                    data_pack['summary'][f'{method} Mean {metric}'] = np.mean(result_pack[method][metric].values)
-                    data_pack['summary'][f'{method} Median {metric}'] = np.median(result_pack[method][metric].values)
-                    data_pack['summary'][f'{method} Std {metric}'] = np.std(result_pack[method][metric].values)
-                    data_pack['summary'][f'{method} Max {metric}'] = np.max(result_pack[method][metric].values)
-                    data_pack['summary'][f'{method} Min {metric}'] = np.min(result_pack[method][metric].values)
+                    data_pack['summary'][method] = {
+                        f'Mean {metric}': float(np.mean(result_pack[method][metric].values)),
+                        f'Median {metric}': float(np.median(result_pack[method][metric].values)),
+                        f'Std {metric}': float(np.std(result_pack[method][metric].values)),
+                        f'Max {metric}': float(np.max(result_pack[method][metric].values)),
+                        f'Min {metric}': float(np.min(result_pack[method][metric].values)),
+                    }
 
-
+            
         # MLFlow
         # with mlflow.start_run(run_name = randomize_run_name()):
         with mlflow.start_run(run_id=run_id):

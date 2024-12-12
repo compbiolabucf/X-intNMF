@@ -180,12 +180,22 @@ if __name__ == "__main__":
     # Sync processes
     # -----------------------------------------------------------------------------------------------
     if args.parallel:
+        logging.info(f"Waiting for processes to finish")
+        parallel_results = []
+        while any(p.is_alive() for p in processes) or not result_queue.empty():
+            try:
+                res = result_queue.get(timeout=0.5)
+                parallel_results.append(res)
+                # logging.fatal(f"Parallel results bef: {len(parallel_results)}")
+                del res
+                logging.info(f'Target {parallel_results[-1]["id"]} completed')
+                # logging.fatal(f"Parallel results aft: {len(parallel_results)}")
+            except Exception as e:
+                pass
+        result_queue = parallel_results
         for process in tqdm(processes, desc="Waiting for processes to finish"):
             process.join()
-        parallel_results = []
-        while not result_queue.empty():
-            parallel_results.append(result_queue.get())
-        result_queue = parallel_results
+        logging.info(f"All processes finished")
 
 
 

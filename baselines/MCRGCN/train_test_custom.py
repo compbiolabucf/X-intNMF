@@ -28,7 +28,7 @@ from sklearn.metrics import roc_curve, auc
 from sklearn import preprocessing
 from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import roc_curve, auc, accuracy_score, recall_score, f1_score, matthews_corrcoef, roc_auc_score, average_precision_score
+from sklearn.metrics import roc_curve, auc, accuracy_score, recall_score, f1_score, matthews_corrcoef, roc_auc_score, average_precision_score, precision_score
 from sklearn.model_selection import KFold
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
@@ -84,8 +84,7 @@ def parallel_train_test_one_target(
 ):
     omic_layers = [pd.DataFrame.from_dict(x, orient='index').T for x in omic_layers]
     testdata = pd.DataFrame.from_dict(testdata, orient='index')
-    metrics = ['pred', 'prob', 'ACC', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC']
-    results = pd.DataFrame(index = testdata.index, columns = metrics) 
+    results = {}
 
     # Iterate through each test
     for test_id in tqdm(testdata.index, desc=f"Evaluating label {target_id} on testdata"):
@@ -113,18 +112,17 @@ def parallel_train_test_one_target(
 
         logging.info(f"{test_id}, target {target_id} completed")
         # Store the result
-        for data_field in result_for_one_test.keys():
-            results.at[test_id, data_field] = result_for_one_test[data_field]
+        results[test_id] = result_for_one_test
 
     if result_queue is None:
         return {
             'id': target_id,
-            'data': results.to_dict(orient='index')
+            'data': results
         }
     else:
         result_queue.put({
             'id': target_id,
-            'data': results.to_dict(orient='index')
+            'data': results
         })
     
 
@@ -226,6 +224,7 @@ def custom___train_test(
         'pred': pd.Series(pred).astype(int).tolist(),
         'prob': pd.Series(prob).astype(float).tolist(),
         'ACC': float(accuracy_score(targets_test, pred)),
+        'PRE': float(precision_score(targets_test, pred)),
         'REC': float(recall_score(targets_test, pred)),
         'F1': float(f1_score(targets_test, pred)),
         'MCC': float(matthews_corrcoef(targets_test, pred)),
