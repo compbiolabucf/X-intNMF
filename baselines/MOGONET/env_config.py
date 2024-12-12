@@ -94,6 +94,6 @@ elif args.run_mode == "test":
     base_path = f'{DATA_PATH}/BreastCancer'
     DATA_PATH = f'{base_path}/processed_crossOmics'
     TARG_PATH = f'{base_path}/clinical_testdata'
-    RESULT_PRE_PATH += 'brca'
+    RESULT_PRE_PATH += 'test'
 else: raise ValueError("Invalid run mode")
 

@@ -95,31 +95,44 @@ if __name__ == '__main__':
         data_pack = {
             'run_id': run_id,
             'target_id': target_id,
-            'summary': {}
+            'summary': {method: {} for method in result_pack.keys()},
         }
+
+
+        result_to_mlflow = []
         for method in result_pack.keys():
-            data_pack[method] = result_pack[method].to_dict(orient='index')
-
-            for metric in result_pack[method].columns:
-                if str(metric).isupper():
-                    data_pack['summary'][method] = {
-                        f'Mean {metric}': float(np.mean(result_pack[method][metric].values)),
-                        f'Median {metric}': float(np.median(result_pack[method][metric].values)),
-                        f'Std {metric}': float(np.std(result_pack[method][metric].values)),
-                        f'Max {metric}': float(np.max(result_pack[method][metric].values)),
-                        f'Min {metric}': float(np.min(result_pack[method][metric].values)),
-                    }
-
+            data_pack[method] = result_pack[method]
             
+            summary_df = pd.DataFrame.from_dict(result_pack[method], orient='index')
+            for metric in summary_df.columns:
+                if str(metric).isupper():
+                    # Assume all metrics are upper case-noted columns
+                    data_pack['summary'][method].update({
+                        f'Mean {metric}'    : float(summary_df[metric].mean()),
+                        f'Median {metric}'  : float(summary_df[metric].median()),
+                        f'Std {metric}'     : float(summary_df[metric].std()),
+                        f'Max {metric}'     : float(summary_df[metric].max()),
+                        f'Min {metric}'     : float(summary_df[metric].min()),
+                    })
+
+                if str(metric) == 'AUROC':
+                    result_to_mlflow.append({
+                        'field': f'{target_id} {method} Mean AUC',
+                        'value': data_pack['summary'][method][f'Mean {metric}']
+                    })
+                if str(metric) == 'MCC':
+                    result_to_mlflow.append({
+                        'field': f'{target_id} {method} Mean MCC',
+                        'value': data_pack['summary'][method][f'Mean {metric}']
+                    })
+                    
         # MLFlow
         # with mlflow.start_run(run_name = randomize_run_name()):
         with mlflow.start_run(run_id=run_id):
             run_name = mlflow.active_run().info.run_name
             data_pack['run_name'] = run_name
-
-            for key in data_pack['summary'].keys():
-                # if 'Mean AUROC' in key: mlflow.log_metric(f'{target_id} {key}', data_pack['summary'][key])
-                if 'Mean MCC' in key: mlflow.log_metric(f'{target_id} {key}', data_pack['summary'][key])
+            for result in result_to_mlflow:
+                mlflow.log_metric(result['field'], result['value'])
 
 
         # Save to MongoDB

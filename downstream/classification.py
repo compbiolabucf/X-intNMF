@@ -43,10 +43,9 @@ def evaluate_one_target(H, testdata, methods_list, target):
     # Prepping the data and result
     logging.info("Starting evaluation")
 
-    metrics = ['pred', 'prob', 'ACC', 'PRE', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC']
+
     results = {
-        method: pd.DataFrame(index = testdata.index, columns = metrics) 
-        for method in methods_list
+        method: {} for method in methods_list
     }
 
     # Iterate through each test
@@ -85,15 +84,17 @@ def evaluate_one_target(H, testdata, methods_list, target):
             AUPRC = average_precision_score(Y_test, prob)
 
             # Store the result
-            results[cls_method].at[test_id, 'pred'] = pd.Series(pred).astype(int).tolist()
-            results[cls_method].at[test_id, 'prob'] = pd.Series(prob).astype(float).tolist()
-            results[cls_method].at[test_id, 'ACC'] = float(ACC)
-            results[cls_method].at[test_id, 'PRE'] = float(PRE)
-            results[cls_method].at[test_id, 'REC'] = float(REC)
-            results[cls_method].at[test_id, 'F1'] = float(F1)
-            results[cls_method].at[test_id, 'MCC'] = float(MCC)
-            results[cls_method].at[test_id, 'AUROC'] = float(AUROC)
-            results[cls_method].at[test_id, 'AUPRC'] = float(AUPRC)
+            results[cls_method][test_id] = {
+                'pred': pd.Series(pred).astype(int).tolist(),
+                'prob': pd.Series(prob).astype(float).tolist(),
+                'ACC': float(ACC),
+                'PRE': float(PRE),
+                'REC': float(REC),
+                'F1': float(F1),
+                'MCC': float(MCC),
+                'AUROC': float(AUROC),
+                'AUPRC': float(AUPRC),
+            }
 
     return results
 
