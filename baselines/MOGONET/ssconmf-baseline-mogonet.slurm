@@ -4,9 +4,9 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
 #SBATCH --time=01:00:00
-#SBATCH --error=log-%J.err
-#SBATCH --output=log-%J.out
-#SBATCH --job-name=ssconmf-baseline-mogonet
+#SBATCH --error=log-mogonet.err
+#SBATCH --output=log-mogonet.out
+#SBATCH --job-name=ariel
 #SBATCH --gres=gpu:2
 
 
