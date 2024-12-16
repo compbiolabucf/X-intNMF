@@ -6,11 +6,13 @@ torch
 scipy
 seaborn
 
+s3fs
 mlflow
 pyarrow
 fastparquet
 colorlog
 openpyxl
+pymongo
 
 torch-scatter 
 torch-sparse 

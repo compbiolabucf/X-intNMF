@@ -31,6 +31,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import AdaBoostClassifier
+from sklearn.model_selection import cross_validate
 from sklearn.metrics import roc_curve, auc, accuracy_score, recall_score, f1_score, matthews_corrcoef, roc_auc_score, average_precision_score, precision_score
 from sklearn.svm import SVC
 
@@ -105,3 +106,87 @@ def evaluate_one_target(H, testdata, methods_list, target):
 
 
 
+def hparams_evaluate(H, train_sample_ids, train_gnd_truth, classifier):
+    # Prepping the data and result
+    logging.info("Starting evaluation")
+
+    if(classifier == "SVM"):                    estimator = SVC(probability=True, verbose=False)
+    elif(classifier == "Random Forest"):        estimator = RandomForestClassifier(verbose=False)
+    elif(classifier == "Logistic Regression"):  estimator = LogisticRegression(max_iter=1000, verbose=False)
+    elif(classifier == "AdaBoost"):             estimator = AdaBoostClassifier()
+
+    Ariel = cross_validate(
+        estimator=estimator,
+        X=H.loc[train_sample_ids].values,
+        y=train_gnd_truth,
+        scoring={
+            'ACC': 'accuracy',
+            'PRE': 'precision',
+            'REC': 'recall',
+            'F1': 'f1',
+            'MCC': 'matthews_corrcoef',
+            'AUROC': 'roc_auc',
+            'AUPRC': 'average_precision',
+        }
+    )
+    for key in Ariel.keys(): Ariel[key] = list(Ariel[key]) # Sanitize the numpy array to list
+    return {
+        'details': Ariel,
+        'AUROC': float(np.mean(Ariel['test_AUROC'])),
+        'MCC': float(np.mean(Ariel['test_MCC'])),
+    }
+    
+    
+          
+
+class HParamsParallelWrapper:
+    def __init__(
+        self,
+        run_cfg_data,
+        tar_data,
+        dataset_id,
+    ):
+        self.run_cfg_data = run_cfg_data
+        self.tar_data = tar_data
+        self.dataset_id = dataset_id
+
+
+    def __call__(self, target_id, test_id, config, classifier):
+        H = self.run_cfg_data[config].copy(deep=True)
+        train_sample_ids = list(self.tar_data[target_id].loc[test_id, f'train_sample_ids'])
+        train_gnd_truth = list(self.tar_data[target_id].loc[test_id, f'train_ground_truth'])
+        data_pack = hparams_evaluate(H, train_sample_ids, train_gnd_truth, classifier, config)
+
+        data_pack.update({
+            'dataset': self.dataset_id,
+            'target_id': target_id,
+            'test_id': test_id,
+            'config': config,
+            'classifier': classifier,
+        })
+
+
+        del H
+        return data_pack
+
+    def eval_nonparallel(self, input):
+        target_id = input['target_id']
+        test_id = input['test_id']
+        config = input['config']
+        classifier = input['classifier']
+        H = self.run_cfg_data[config].copy(deep=True)
+        train_sample_ids = list(self.tar_data[target_id].loc[test_id, f'train_sample_ids'])
+        train_gnd_truth = list(self.tar_data[target_id].loc[test_id, f'train_ground_truth'])
+        data_pack = hparams_evaluate(H, train_sample_ids, train_gnd_truth, classifier)
+
+        data_pack.update({
+            'dataset': self.dataset_id,
+            'target_id': target_id,
+            'test_id': test_id,
+            'config': config,
+            'classifier': classifier,
+        })
+
+
+        del H
+        return data_pack

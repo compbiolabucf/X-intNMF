@@ -49,13 +49,13 @@ args = parser.parse_args()
 # Config
 # -----------------------------------------------------------------------------------------------
 if args.storage_mode == "local":
-    DATA_PATH = '/home/ti514716/Datasets'
-    RESULT_PRE_PATH = '/home/ti514716/Results/SimilarSampleCrossOmicNMF/'
+    base_data_path = '/home/ti514716/Datasets'
+    base_result_path = '/home/ti514716/Results/SimilarSampleCrossOmicNMF'
     storage_options = None
     s3 = None
 elif args.storage_mode == "s3":
-    DATA_PATH = 's3://datasets'
-    RESULT_PRE_PATH = 's3://results/SimilarSampleCrossOmicNMF/'
+    base_data_path = 's3://datasets'
+    base_result_path = 's3://results/SimilarSampleCrossOmicNMF'
     storage_options = {
         'key': 'bu1th4nh',
         'secret': 'ariel.anna.elsa',
@@ -72,23 +72,53 @@ else: raise ValueError("Invalid storage mode")
 
 
 if args.run_mode == "luad":
-    experiment_name = 'SimilarSampleCrossOmicNMFv3_LUAD'
-    base_path = f'{DATA_PATH}/LungCancer'
-    DATA_PATH = f'{base_path}/processed'
-    TARG_PATH = f'{base_path}/clinical_testdata'
-    RESULT_PRE_PATH += 'luad'
+    experiment_name  = 'SimilarSampleCrossOmicNMFv3_LUAD'
+    mongo_collection = 'LUAD'
+    DATA_PATH        = f'{base_data_path}/LungCancer/processed'
+    TARG_PATH        = f'{base_data_path}/LungCancer/clinical_testdata'
+    RESULT_PRE_PATH  = f'{base_result_path}/luad'
+
 elif args.run_mode == "ov":
-    experiment_name = 'SimilarSampleCrossOmicNMFv3_OV'
-    base_path = f'{DATA_PATH}/OvarianCancer'
-    DATA_PATH = f'{base_path}/processed'
-    TARG_PATH = f'{base_path}/clinical_testdata'
-    RESULT_PRE_PATH += 'ov'
+    experiment_name  = 'SimilarSampleCrossOmicNMFv3_OV'
+    mongo_collection = 'OV'
+    DATA_PATH        = f'{base_data_path}/OvarianCancer/processed'
+    TARG_PATH        = f'{base_data_path}/OvarianCancer/clinical_testdata'
+    RESULT_PRE_PATH  = f'{base_result_path}/ov'
+
 elif args.run_mode == "brca":
-    experiment_name = 'SimilarSampleCrossOmicNMFv3'
-    base_path = f'{DATA_PATH}/BreastCancer'
-    DATA_PATH += 'BreastCancer/processed_crossOmics'
-    TARG_PATH = f'{base_path}/clinical_testdata'
-    RESULT_PRE_PATH += 'brca'
+    experiment_name  = 'SimilarSampleCrossOmicNMFv3'
+    mongo_collection = 'BRCA'
+    DATA_PATH        = f'{base_data_path}/BreastCancer/processed_crossOmics'
+    TARG_PATH        = f'{base_data_path}/BreastCancer/clinical_testdata'
+    RESULT_PRE_PATH  = f'{base_result_path}/brca'
+
+elif args.run_mode == "hparams_opts_luad":
+    experiment_name  = 'SimilarSampleCrossOmicNMFv3_LUAD'
+    mongo_collection = 'HPARAMS_OPTS'
+    dataset_id       = 'LUAD'
+    DATA_PATH        = f'{base_data_path}/LungCancer/processed'
+    TARG_PATH        = f'{base_data_path}/LungCancer/clinical_testdata'
+    RUN_CFG_PATH     = f'{base_result_path}/luad'
+
+elif args.run_mode == "hparams_opts_ov":
+    experiment_name  = 'SimilarSampleCrossOmicNMFv3_OV'
+    mongo_collection = 'HPARAMS_OPTS'
+    dataset_id       = 'OV'
+    DATA_PATH        = f'{base_data_path}/OvarianCancer/processed'
+    TARG_PATH        = f'{base_data_path}/OvarianCancer/clinical_testdata'
+    RUN_CFG_PATH     = f'{base_result_path}/ov'
+    
+elif args.run_mode == "hparams_opts_brca":
+    experiment_name  = 'SimilarSampleCrossOmicNMFv3'
+    mongo_collection = 'HPARAMS_OPTS'
+    dataset_id       = 'BRCA'
+    DATA_PATH        = f'{base_data_path}/BreastCancer/processed_crossOmics'
+    TARG_PATH        = f'{base_data_path}/BreastCancer/clinical_testdata'
+    RUN_CFG_PATH     = f'{base_result_path}/brca'
+
+
+
+    
 else: raise ValueError("Invalid run mode")
 
 

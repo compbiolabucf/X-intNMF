@@ -163,7 +163,7 @@ if __name__ == "__main__":
                 logging.info(f"Run {run_id} on dataset {target_id} already exists. Skipping")
                 continue
         test_data = pd.read_parquet(target_folder, storage_options=storage_options)
-        armed_gpu = fol_id % torch.cuda.device_count()
+        armed_gpu = (fol_id + 1) % torch.cuda.device_count()
 
 
         # Evaluate
