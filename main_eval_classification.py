@@ -43,9 +43,9 @@ np.set_printoptions(edgeitems=20, linewidth=1000, formatter=dict(float=lambda x:
 if __name__ == '__main__':
     from env_config import *
     from log_config import initialize_logging
-    from downstream.classification import evaluate_one_target
+    from downstream.classification import evaluate_one_test
 
-
+    run_name = "overall_our_model"
     # -----------------------------------------------------------------------------------------------
     # MongoDB
     # -----------------------------------------------------------------------------------------------
@@ -56,10 +56,11 @@ if __name__ == '__main__':
         password='ariel.anna.elsa',
     )
     mongo_db = mongo['SimilarSampleCrossOmicNMF']
-    collection = mongo_db[str(args.run_mode).upper()]
+    eval_collection = mongo_db[mongo_collection]
+    hparams_runs = mongo_db['HPARAMS_OPTS']
 
 
-    def find_run(run_id: str, target_id: str): return collection.find_one({'run_id': run_id, 'target_id': target_id})
+    def find_run(run_id: str, target_id: str): return eval_collection.find_one({'run_id': run_id, 'target_id': target_id})
     # -----------------------------------------------------------------------------------------------
     # Setup
     # -----------------------------------------------------------------------------------------------
@@ -76,142 +77,139 @@ if __name__ == '__main__':
 
 
     # -----------------------------------------------------------------------------------------------
-    # Parallelize
+    # Run ID Retrieval
     # -----------------------------------------------------------------------------------------------
-    def process_run(run_info, run_data, tar_data):
-        # Unpack
-        run_id = run_info['run_id']
-        run_folder = run_info['run_folder']
-        target_id = run_info['target_id']
+    all_runs = mlflow.search_runs()[['run_id', 'tags.mlflow.runName']]
+    possible_run_ids = all_runs[all_runs['tags.mlflow.runName'] == run_name]
+    run_id = possible_run_ids['run_id'].values[0] if len(possible_run_ids) > 0 else None
 
-        # Load the data
-        H = pd.DataFrame.from_dict(run_data[run_folder], orient='index')
-        test_data = pd.DataFrame.from_dict(tar_data[target_id], orient='index')
-
-        # Evaluate
-        result_pack = evaluate_one_target(H, testdata = test_data, methods_list = classification_methods_list, target = target_id)
-
-        # Load to staging package
-        data_pack = {
-            'run_id': run_id,
-            'target_id': target_id,
-            'summary': {method: {} for method in result_pack.keys()},
-        }
-
-
-        result_to_mlflow = []
-        for method in result_pack.keys():
-            data_pack[method] = result_pack[method]
-            
-            summary_df = pd.DataFrame.from_dict(result_pack[method], orient='index')
-            for metric in summary_df.columns:
-                if str(metric).isupper():
-                    # Assume all metrics are upper case-noted columns
-                    data_pack['summary'][method].update({
-                        f'Mean {metric}'    : float(summary_df[metric].mean()),
-                        f'Median {metric}'  : float(summary_df[metric].median()),
-                        f'Std {metric}'     : float(summary_df[metric].std()),
-                        f'Max {metric}'     : float(summary_df[metric].max()),
-                        f'Min {metric}'     : float(summary_df[metric].min()),
-                    })
-
-                if str(metric) == 'AUROC':
-                    result_to_mlflow.append({
-                        'field': f'{target_id} {method} Mean AUC',
-                        'value': data_pack['summary'][method][f'Mean {metric}']
-                    })
-                if str(metric) == 'MCC':
-                    result_to_mlflow.append({
-                        'field': f'{target_id} {method} Mean MCC',
-                        'value': data_pack['summary'][method][f'Mean {metric}']
-                    })
-                    
-        # MLFlow
-        # with mlflow.start_run(run_name = randomize_run_name()):
-        with mlflow.start_run(run_id=run_id):
-            run_name = mlflow.active_run().info.run_name
-            data_pack['run_name'] = run_name
-            for result in result_to_mlflow:
-                mlflow.log_metric(result['field'], result['value'])
-
-
-        # Save to MongoDB
-        collection.insert_one(data_pack)
 
 
     # -----------------------------------------------------------------------------------------------
-    # Classification
+    # Data
     # -----------------------------------------------------------------------------------------------
-    patience_delay = 0
-    while True:
-        # Get all runs and testdata
-        logging.info("Fetching all runs and testdata")
-        run_folders = [f's3://{a}' for a in s3.ls(RESULT_PRE_PATH)] if s3 is not None else os.listdir(RESULT_PRE_PATH)
-        target_folders = [f's3://{a}' for a in s3.ls(TARG_PATH)] if s3 is not None else os.listdir(TARG_PATH)
-        run_queue = []
+    # Get all runs and testdata
+    logging.info("Fetching all runs configs and testdata")
+    run_config_folders = [f's3://{a}' for a in s3.ls(RESULT_PRE_PATH)] if s3 is not None else os.listdir(RESULT_PRE_PATH)
+    target_folders = [f's3://{a}' for a in s3.ls(TARG_PATH)] if s3 is not None else os.listdir(TARG_PATH)
+    
 
-        # Preload set
-        actual_runs = set()
-        actual_targets = set()
-        
-        # Iterate through each run & folders, and check if the run is already in the database
-        # If not, add to the queue
-        for run_folder in run_folders:
-            run_id = s3.open(f'{run_folder}/run_id.txt', 'r').read() if s3 is not None else open(f'{run_folder}/run_id.txt', 'r').read()
+    # Preload set
+    run_cfg_data = {}
+    tar_data = {}
 
-            # Special case, TODO workarounds: Skip baselines
-            if str(run_folder.split('/')[-1]).startswith('baseline'): continue
 
-            # Check if run already exists
-            for target_folder in target_folders:
-                target_id = str(target_folder.split('/')[-1]).split('.')[0]
-                if find_run(run_id, target_id) is not None:
-                    logging.info(f"Run {run_id} on dataset {target_id} already exists. Skipping")
-                    continue
-                run_queue.append({
-                    'run_id': run_id,
-                    'run_folder': run_folder,
-                    'target_id': target_id,
+    # Preload data
+    logging.info("Preloading data")
+    for cfg in run_config_folders: 
+        cfg_id = cfg.split('/')[-1]
+        print(cfg_id, cfg)
+        if 'baseline' in cfg_id: continue
+        run_cfg_data[cfg_id] = pd.read_parquet(f'{cfg}/H.parquet', storage_options=storage_options)
+    for tar in target_folders:
+        target_id = str(tar.split('/')[-1]).split('.')[0]
+        print(target_id, tar)
+        tar_data[target_id] = pd.read_parquet(tar, storage_options=storage_options)
+
+
+    # -----------------------------------------------------------------------------------------------
+    # Evaluate
+    # -----------------------------------------------------------------------------------------------
+    with mlflow.start_run(run_id=run_id) if run_id is not None else mlflow.start_run(run_name=run_name):
+        # Load and evaluate best config for each test
+        for target_id in list(tar_data.keys()):
+            # Pre-check
+            update_mode = False
+            if find_run(run_id, target_id) is not None: update_mode = True
+
+            # Initialize
+            result_for_target = {
+                "run_id": run_id, # To be determined at MLFlow
+                "target_id": target_id,
+                "run_name": run_name,
+                "summary": {},
+                "Overall": {},
+            }
+
+            # Load target data
+            target = tar_data[target_id]
+            for test_id in tqdm(target.index, desc=f'Loading and evaluating best config for each test {target_id} on test set'):
+                # Load best hparams and classifier for each test. Currently is determined by AUROC/AUC
+                Ariel = list(
+                    hparams_runs
+                    .find(
+                        {
+                            "dataset": dataset_id,
+                            "target_id": target_id,
+                            "test_id": test_id,
+                        },
+                        {
+                            "_id": 0,
+                            "AUROC": 1,
+                            "config": 1,
+                            "classifier": 1,
+                        }
+                    ).sort({"AUROC": -1})
+                    .limit(1)
+                )[0]
+
+                
+                # Load actual config, classifier and testdata
+                classifier = Ariel['classifier']
+                config_id = Ariel['config']
+                H = run_cfg_data[config_id]
+                train_sample_ids = target.at[test_id, 'train_sample_ids']
+                train_gnd_truth  = target.at[test_id, 'train_ground_truth']
+                test_sample_ids  = target.at[test_id, 'test_sample_ids']
+                test_gnd_truth   = target.at[test_id, 'test_ground_truth']
+
+                # Evaluate
+                data_pack = evaluate_one_test(H, train_sample_ids, train_gnd_truth, test_sample_ids, test_gnd_truth, classifier)
+                metrics_list = [x for x in data_pack.keys() if str(x).isupper()] # Assume all metrics are uppercase
+
+                # Build metadata
+                data_pack.update({
+                    'train_positive_count': int(np.sum(train_gnd_truth)),
+                    'train_negative_count': int(len(train_gnd_truth) - np.sum(train_gnd_truth)),
+                    'test_positive_count': int(np.sum(test_gnd_truth)),
+                    'test_negative_count': int(len(test_gnd_truth) - np.sum(test_gnd_truth)),
+                    'classifier': classifier,
+                    'config_id': config_id,
+                    'config_details': {
+                        'latent_profiles': int(config_id.split('-')[1]),
+                        'alpha': float(config_id.split('-')[3]),
+                        'beta': float(config_id.split('-')[5]),
+                        'gamma': 'overriden by cross-validation',
+                    },
                 })
-                actual_runs.add(run_folder)
-                actual_targets.add(target_id)
-
-        # If no new runs, increase patience
-        logging.info(f"Found {len(run_queue)} new runs to evaluate")
-        if len(run_queue) == 0:
-            patience_delay += 1
-            if patience_delay == 5: break
-            else: 
-                os.sleep(60)
-                continue
-
-        # Reset patience
-        patience_delay = 0
 
 
-        # Preload the data
-        logging.info("Preloading data")
-        run_data = {run: pd.read_parquet(f'{run}/H.parquet', storage_options=storage_options).to_dict(orient='index') for run in actual_runs}
-        tar_data = {target: pd.read_parquet(f'{TARG_PATH}/{target}.parquet', storage_options=storage_options).to_dict(orient='index') for target in actual_targets}
-        
+            # Retrieve summary
+            result_for_target['Overall'][test_id] = data_pack
+            Belle = pd.DataFrame.from_dict(result_for_target['Overall'], orient='index')[metrics_list]
+            for metric in metrics_list:
+                result_for_target['summary'][f'Mean {metric}'] = float(Belle[metric].mean(skipna=True))
+                result_for_target['summary'][f'Median {metric}'] = float(Belle[metric].median(skipna=True))
+                result_for_target['summary'][f'Std {metric}'] = float(Belle[metric].std(skipna=True))
+                result_for_target['summary'][f'Max {metric}'] = float(Belle[metric].max(skipna=True))
+                result_for_target['summary'][f'Min {metric}'] = float(Belle[metric].min(skipna=True))
 
-        # Iterate through each run
-        if args.parallel:
-            logging.info("Starting parallel classification evaluation")
 
-            parallel_args = [(run_info, run_data, tar_data) for run_info in run_queue]
-            with multiprocessing.Pool(processes=24) as pool:
-                tqdm(pool.starmap(process_run, parallel_args))
-        else:
-            logging.info("Starting sequential classification evaluation")
-            for run_info in tqdm(run_queue):
-                process_run(run_info, run_data, tar_data)
-        
+            # Save to MLFlow
+            logging.info(f"========================================================\n\n\n\n")
+            logging.info(f"Summary for target {target_id}")
+            for key in result_for_target['summary'].keys():
+                logging.info(f"{key}: {result_for_target['summary'][key]}")
 
-        # Cleanup
-        logging.info("Cleaning up")
-        del run_data
-        del tar_data
-        del run_queue
-        del actual_runs
-        del actual_targets
+                if 'Mean AUROC' in key: 
+                    for method in classification_methods_list:
+                        mlflow.log_metric(f'{target_id} Overall AUC', result_for_target['summary'][key])
+                if 'Mean MCC' in key: mlflow.log_metric(f'{target_id} Overall MCC', result_for_target['summary'][key])
+
+
+            # Save to MongoDB
+            if update_mode: eval_collection.update_one(
+                {'run_id': run_id, 'target_id': target_id},
+                {'$set': result_for_target}
+            )
+            else: eval_collection.insert_one(result_for_target)

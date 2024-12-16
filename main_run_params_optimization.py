@@ -80,8 +80,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------
     # Get all runs and testdata
     logging.info("Fetching all runs and testdata")
-    run_config_folders = [f's3://{a}' for a in s3.ls(RUN_CFG_PATH)] if s3 is not None else os.listdir(RUN_CFG_PATH)
-    target_folders = [f's3://{a}' for a in s3.ls(TARG_PATH)] if s3 is not None else os.listdir(TARG_PATH)
+    
     
 
     # Preload set

@@ -39,6 +39,46 @@ from tqdm import tqdm
 
 
 
+def evaluate_one_test(H, train_sample_ids, train_gnd_truth, test_sample_ids, test_gnd_truth, classifier):
+    if(classifier == "SVM"):                    cls = SVC(probability=True, verbose=False)
+    elif(classifier == "Random Forest"):        cls = RandomForestClassifier(verbose=False)
+    elif(classifier == "Logistic Regression"):  cls = LogisticRegression(max_iter=1000, verbose=False)
+    elif(classifier == "AdaBoost"):             cls = AdaBoostClassifier()
+
+    # Get train test X/Y
+    X_train = H.loc[train_sample_ids].values
+    Y_train = np.array(train_gnd_truth)
+    X_test = H.loc[test_sample_ids].values
+    Y_test = np.array(test_gnd_truth)
+
+    # Fit & predict the model
+    cls.fit(X_train, Y_train)
+    pred = cls.predict(X_test)
+    prob = cls.predict_proba(X_test)[::,1]
+
+    # Metrics
+    ACC = accuracy_score(Y_test, pred)
+    PRE = precision_score(Y_test, pred)
+    REC = recall_score(Y_test, pred)
+    F1 = f1_score(Y_test, pred)
+    MCC = matthews_corrcoef(Y_test, pred)
+    AUROC = roc_auc_score(Y_test, prob)
+    AUPRC = average_precision_score(Y_test, prob)
+
+    # Store the result
+    return {
+        'pred': pd.Series(pred).astype(int).tolist(),
+        'prob': pd.Series(prob).astype(float).tolist(),
+        'ACC': float(ACC),
+        'PRE': float(PRE),
+        'REC': float(REC),
+        'F1': float(F1),
+        'MCC': float(MCC),
+        'AUROC': float(AUROC),
+        'AUPRC': float(AUPRC),
+    }
+
+
 
 def evaluate_one_target(H, testdata, methods_list, target):
     # Prepping the data and result
@@ -57,45 +97,9 @@ def evaluate_one_target(H, testdata, methods_list, target):
         test_sample_ids = testdata.loc[test_id, f'test_sample_ids']
         test_gnd_truth = testdata.loc[test_id, f'test_ground_truth']
 
-        # Get train test X/Y
-        X_train = H.loc[train_sample_ids].values
-        Y_train = np.array(train_gnd_truth)
-        X_test = H.loc[test_sample_ids].values
-        Y_test = np.array(test_gnd_truth)
-
         # Evaluate each method
-        for cls_method in methods_list:
-            if(cls_method == "SVM"):                    cls = SVC(probability=True, verbose=False)
-            elif(cls_method == "Random Forest"):        cls = RandomForestClassifier(verbose=False)
-            elif(cls_method == "Logistic Regression"):  cls = LogisticRegression(max_iter=1000, verbose=False)
-            elif(cls_method == "AdaBoost"):             cls = AdaBoostClassifier()
-
-            # Fit & predict the model
-            cls.fit(X_train, Y_train)
-            pred = cls.predict(X_test)
-            prob = cls.predict_proba(X_test)[::,1]
-
-            # Metrics
-            ACC = accuracy_score(Y_test, pred)
-            PRE = precision_score(Y_test, pred)
-            REC = recall_score(Y_test, pred)
-            F1 = f1_score(Y_test, pred)
-            MCC = matthews_corrcoef(Y_test, pred)
-            AUROC = roc_auc_score(Y_test, prob)
-            AUPRC = average_precision_score(Y_test, prob)
-
-            # Store the result
-            results[cls_method][test_id] = {
-                'pred': pd.Series(pred).astype(int).tolist(),
-                'prob': pd.Series(prob).astype(float).tolist(),
-                'ACC': float(ACC),
-                'PRE': float(PRE),
-                'REC': float(REC),
-                'F1': float(F1),
-                'MCC': float(MCC),
-                'AUROC': float(AUROC),
-                'AUPRC': float(AUPRC),
-            }
+        for classifier in methods_list:
+            results[classifier][test_id] = evaluate_one_target(H, train_sample_ids, train_gnd_truth, test_sample_ids, test_gnd_truth, classifier)
 
     return results
 

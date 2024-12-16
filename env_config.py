@@ -74,6 +74,7 @@ else: raise ValueError("Invalid storage mode")
 if args.run_mode == "luad":
     experiment_name  = 'SimilarSampleCrossOmicNMFv3_LUAD'
     mongo_collection = 'LUAD'
+    dataset_id       = 'LUAD'
     DATA_PATH        = f'{base_data_path}/LungCancer/processed'
     TARG_PATH        = f'{base_data_path}/LungCancer/clinical_testdata'
     RESULT_PRE_PATH  = f'{base_result_path}/luad'
@@ -81,6 +82,7 @@ if args.run_mode == "luad":
 elif args.run_mode == "ov":
     experiment_name  = 'SimilarSampleCrossOmicNMFv3_OV'
     mongo_collection = 'OV'
+    dataset_id       = 'OV'
     DATA_PATH        = f'{base_data_path}/OvarianCancer/processed'
     TARG_PATH        = f'{base_data_path}/OvarianCancer/clinical_testdata'
     RESULT_PRE_PATH  = f'{base_result_path}/ov'
@@ -88,6 +90,7 @@ elif args.run_mode == "ov":
 elif args.run_mode == "brca":
     experiment_name  = 'SimilarSampleCrossOmicNMFv3'
     mongo_collection = 'BRCA'
+    dataset_id       = 'BRCA'
     DATA_PATH        = f'{base_data_path}/BreastCancer/processed_crossOmics'
     TARG_PATH        = f'{base_data_path}/BreastCancer/clinical_testdata'
     RESULT_PRE_PATH  = f'{base_result_path}/brca'
