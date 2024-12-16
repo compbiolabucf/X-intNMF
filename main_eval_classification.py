@@ -101,14 +101,14 @@ if __name__ == '__main__':
 
     # Preload data
     logging.info("Preloading data")
-    for cfg in run_config_folders: 
+    for cfg in tqdm(run_config_folders, desc='Preloading config'): 
         cfg_id = cfg.split('/')[-1]
-        print(cfg_id, cfg)
+        # print(cfg_id, cfg)
         if 'baseline' in cfg_id: continue
         run_cfg_data[cfg_id] = pd.read_parquet(f'{cfg}/H.parquet', storage_options=storage_options)
-    for tar in target_folders:
+    for tar in tqdm(target_folders, desc='Preloading target data'):
         target_id = str(tar.split('/')[-1]).split('.')[0]
-        print(target_id, tar)
+        # print(target_id, tar)
         tar_data[target_id] = pd.read_parquet(tar, storage_options=storage_options)
 
 
@@ -116,6 +116,8 @@ if __name__ == '__main__':
     # Evaluate
     # -----------------------------------------------------------------------------------------------
     with mlflow.start_run(run_id=run_id) if run_id is not None else mlflow.start_run(run_name=run_name):
+        if run_id is None: run_id = mlflow.active_run().info.run_id
+
         # Load and evaluate best config for each test
         for target_id in list(tar_data.keys()):
             # Pre-check
@@ -152,7 +154,6 @@ if __name__ == '__main__':
                     ).sort({"AUROC": -1})
                     .limit(1)
                 )[0]
-
                 
                 # Load actual config, classifier and testdata
                 classifier = Ariel['classifier']
@@ -169,6 +170,7 @@ if __name__ == '__main__':
 
                 # Build metadata
                 data_pack.update({
+                    'best_AUROC_param_optimization': Ariel['AUROC'],
                     'train_positive_count': int(np.sum(train_gnd_truth)),
                     'train_negative_count': int(len(train_gnd_truth) - np.sum(train_gnd_truth)),
                     'test_positive_count': int(np.sum(test_gnd_truth)),
@@ -183,9 +185,11 @@ if __name__ == '__main__':
                     },
                 })
 
+                # Save to result
+                result_for_target['Overall'][test_id] = data_pack
 
-            # Retrieve summary
-            result_for_target['Overall'][test_id] = data_pack
+
+            # Compute summary
             Belle = pd.DataFrame.from_dict(result_for_target['Overall'], orient='index')[metrics_list]
             for metric in metrics_list:
                 result_for_target['summary'][f'Mean {metric}'] = float(Belle[metric].mean(skipna=True))
