@@ -11,13 +11,13 @@ from torch_geometric.data import Data
 
 
 class HeCo(nn.Module):
-    def __init__(self, num_feature1, num_feature3):
+    def __init__(self, num_feature1, num_feature3, n_sample):
         super(HeCo, self).__init__()
         # self.LP1 = torch.nn.Linear(num_feature1, 512)
         # self.LP2 = torch.nn.Linear(num_feature2, 512)
-        self.ge = GeneGCN(num_feature1)
+        self.ge = GeneGCN(num_feature1, n_sample)
         # self.mp = MethyGCN(num_feature2)
-        self.sc = MirnaGCN(num_feature3)
+        self.sc = MirnaGCN(num_feature3, n_sample)
 
         self.LP3 = torch.nn.Linear(128, 256)
         self.LP4 = torch.nn.Linear(256, 128)

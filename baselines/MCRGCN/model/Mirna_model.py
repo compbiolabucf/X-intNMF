@@ -8,7 +8,7 @@ from torch_geometric.nn.conv import MessagePassing
 
 
 class MirnaGCN(torch.nn.Module, ABC):
-    def __init__(self, num_feature):
+    def __init__(self, num_feature, n_sample):
         super(MirnaGCN, self).__init__()
         self.GCN1 = ChebConv(num_feature, 256, 2)
         self.GCN2 = ChebConv(256, 256, 2)
@@ -21,9 +21,9 @@ class MirnaGCN(torch.nn.Module, ABC):
         # self.bn2 = torch.nn.BatchNorm1d(256)
         # self.LP1 = torch.nn.Linear(num_feature, 512)
         self.LP = torch.nn.Linear(num_feature, 256)
-        self.ln1 = torch.nn.LayerNorm([830, 256], elementwise_affine=False)
-        self.ln2 = torch.nn.LayerNorm([830, 256], elementwise_affine=False)
-        self.ln3 = torch.nn.LayerNorm([830, 128], elementwise_affine=False)
+        self.ln1 = torch.nn.LayerNorm([n_sample, 256], elementwise_affine=False)
+        self.ln2 = torch.nn.LayerNorm([n_sample, 256], elementwise_affine=False)
+        self.ln3 = torch.nn.LayerNorm([n_sample, 128], elementwise_affine=False)
 
     def forward(self, data):
         x, edge_index = data.x, data.edge_index

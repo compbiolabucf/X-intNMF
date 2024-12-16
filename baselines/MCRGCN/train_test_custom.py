@@ -141,6 +141,8 @@ def custom___train_test(
     te_sample_list,
     device,
 ):
+    n_sample = omic_layers[0].shape[0]
+
     labels = torch.LongTensor(label_data_series.values).to(device)
     features1 = torch.FloatTensor(omic_layers[0].values).to(device)
     # features2 = torch.FloatTensor(omic_layers[1].values).to(device)
@@ -179,7 +181,7 @@ def custom___train_test(
     logging.info(f'[PROCESS {str(device).split(":")[-1]}] features1.shape[1]: {features1.shape[1]}')
     # logging.info(f'[PROCESS {str(device).split(":")[-1]}] features2.shape[1]: {features2.shape[1]}')
     logging.info(f'[PROCESS {str(device).split(":")[-1]}] features3.shape[1]: {features3.shape[1]}')
-    model = HeCo(features1.shape[1], features3.shape[1]).to(device)
+    model = HeCo(features1.shape[1], features3.shape[1], n_sample).to(device)
 
 
 
