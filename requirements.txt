@@ -1,0 +1,17 @@
+fastparquet
+matplotlib
+numpy
+pandas
+pyarrow
+scikit-learn
+seaborn
+tqdm
+colorlog
+openpyxl
+colorama
+streamlit
+
+s3fs
+mlflow
+cupy-cuda12x
+pymongo

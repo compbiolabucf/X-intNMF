@@ -1,0 +1,11 @@
+mofapy2
+mofax
+numpy
+pandas
+pymongo
+s3fs
+tqdm
+pyarrow
+fastparquet
+openpyxl
+mlflow

@@ -1,0 +1,13 @@
+numpy
+pandas
+torch
+scikit-learn
+pyinstrument
+s3fs
+tqdm
+mlflow
+pyarrow
+fastparquet
+openpyxl
+pymongo
+colorlog
