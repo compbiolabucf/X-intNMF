@@ -99,7 +99,7 @@ def evaluate_one_target(H, testdata, methods_list, target):
 
         # Evaluate each method
         for classifier in methods_list:
-            results[classifier][test_id] = evaluate_one_target(H, train_sample_ids, train_gnd_truth, test_sample_ids, test_gnd_truth, classifier)
+            results[classifier][test_id] = evaluate_one_test(H, train_sample_ids, train_gnd_truth, test_sample_ids, test_gnd_truth, classifier)
 
     return results
 

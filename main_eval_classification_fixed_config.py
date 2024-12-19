@@ -45,7 +45,7 @@ if __name__ == '__main__':
     from log_config import initialize_logging
     from downstream.classification import evaluate_one_target
 
-    run_name = "overall_our_model"
+    run_name = "overall_our_model_fixed_config"
     # -----------------------------------------------------------------------------------------------
     # MongoDB
     # -----------------------------------------------------------------------------------------------
@@ -152,12 +152,12 @@ if __name__ == '__main__':
                 )
             )
             Ariel = pd.DataFrame.from_records(Ariel)
-            Ariel['config'] = Ariel[['config', 'classifier']].apply(lambda row: f"{row['config']}_{row['classifier']}", axis=1)
+            Ariel['config'] = Ariel[['config', 'classifier']].apply(lambda row: f"{row['config']}|{row['classifier']}", axis=1)
             Ariel = Ariel[['config', 'AUROC']].groupby('config').mean()
             best_cfg = Ariel.index[np.argmax(Ariel.values)]
             
-            config_id = best_cfg.split('-')[0]
-            classifier = best_cfg.split('-')[1]
+            config_id = best_cfg.split('|')[0]
+            classifier = best_cfg.split('|')[1]
             H = run_cfg_data[config_id]
 
 
@@ -182,8 +182,8 @@ if __name__ == '__main__':
 
 
             # Compute summary
-            Belle = pd.DataFrame.from_dict(result_for_target['Overall'], orient='index')[metrics_list]
             metrics_list = ["AUROC", "ACC", "PRE", "REC", "F1", "MCC", "AUPRC"]
+            Belle = pd.DataFrame.from_dict(result_for_target['Overall'], orient='index')[metrics_list]
             for metric in metrics_list:
                 result_for_target['summary'][f'Mean {metric}'] = float(Belle[metric].mean(skipna=True))
                 result_for_target['summary'][f'Median {metric}'] = float(Belle[metric].median(skipna=True))
