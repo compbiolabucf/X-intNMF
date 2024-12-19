@@ -9,6 +9,7 @@ tqdm
 colorlog
 openpyxl
 colorama
+streamlit
 
 s3fs
 mlflow
