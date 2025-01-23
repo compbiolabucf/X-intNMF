@@ -136,14 +136,14 @@ if st.button("Retrieve Result", use_container_width=True):
                 if('baseline' in run_name and 'MOFA2' not in run_name): summary = {run_name.split('_')[1]: summary}
                 if('overall' in run_name and 'MOFA2' not in run_name): 
                     summary = {"Ours": summary}
-                    if subdata.loc[index, 'run_name'] == 'overall_our_model': subdata.loc[index, 'run_name'] = 'Our model, strategy 1'
+                    if subdata.loc[index, 'run_name'] == 'overall_our_model': continue
                     if subdata.loc[index, 'run_name'] == 'overall_our_model_fixed_config': subdata.loc[index, 'run_name'] = 'Our model, strategy 2'
                 if('alpha' in run_name): continue
 
                 for classifier in summary.keys():
                     Ariel = summary[classifier]
                     data_row = {
-                        'Run Name': subdata.loc[index, 'run_name'],
+                        'Run Name': subdata.loc[index, 'run_name'].split('_')[-1] if '_' in subdata.loc[index, 'run_name'] else subdata.loc[index, 'run_name'],
                         'Classifier': classifier,
                     }
                     if dataset_choice != 'BRCA':
