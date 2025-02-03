@@ -18,11 +18,13 @@
 # -----------------------------------------------------------------------------------------------
 
 import os
+import torch
 import logging
 import cupy as cp
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from torch import Tensor
 from typing import List, Dict, Any, Tuple, Union, Literal
 
 
@@ -45,14 +47,17 @@ class IterativeCheckpointing:
 
     def save(
         self, 
-        Ws: Union[List[np.ndarray], List[cp.ndarray]],
-        H: Union[np.ndarray, cp.ndarray],
+        Ws: Union[List[np.ndarray], List[cp.ndarray], List[Tensor]],
+        H: Union[np.ndarray, cp.ndarray, Tensor],
         step: Union[int, None],
     ):
         # CuPy Sanitize
         if isinstance(H, cp.ndarray): 
             H = H.get()
             Ws = [W.get() for W in Ws]
+        elif isinstance(H, Tensor):
+            H = H.detach().cpu().numpy()
+            Ws = [W.detach().cpu().numpy() for W in Ws]
 
 
         # Init columns and paths

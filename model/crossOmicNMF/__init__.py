@@ -61,6 +61,8 @@ class SimilarSampleCrossOmicNMF:
             The tolerance to stop the algorithm
         - `verbose`: bool
             Whether to print the debug information or not
+        - `gpu`: Union[int, None]
+            The GPU device to use. Default is None, which means using CPU
     """
 
 
@@ -80,6 +82,7 @@ class SimilarSampleCrossOmicNMF:
     tol: float                                                  # Tolerance to stop the algorithm
     verbose: bool                                               # Whether to print the debug information or not
     similarity_method: Union[Callable, None]                    # The similarity metric to calculate the similarity matrix. If None, the default metric is Pearson correlation coefficient. The method should take the omics layers matrix as input and return the similarity matrix of shape (feature, feature), or (m, m)
+    device: Union[str, None] = None                             # Device to use. Default is None
 
     # Internal variables, inferred from input
     D: int                                                      # Number of omics layers
@@ -106,6 +109,7 @@ class SimilarSampleCrossOmicNMF:
         max_iter: int,                                                  # Maximum number of iterations
         tol: float,                                                     # Tolerance to stop the algorithm
         verbose: bool = False,                                          # Whether to print the debug information or not 
+        gpu: Union[int, None] = None,                                   # GPU device to use. Default is None
     ):
         # Direct input
         self.Xd_source = omics_layers
@@ -117,6 +121,7 @@ class SimilarSampleCrossOmicNMF:
         self.max_iter = max_iter
         self.tol = tol
         self.verbose = verbose
+        self.device = f'cuda:{gpu}' if gpu is not None else 'cpu'
 
 
         # Inferred from input
@@ -174,8 +179,9 @@ class SimilarSampleCrossOmicNMF:
     from ._operations import InitializeBalancedCutoff
     from ._operations import InitializeWd
     from ._operations import LassoSolveH
-    from ._operations import IterativeSolveWdsAndH
-    from ._operations import IterativeSolveWdsAndH_CuPy
+    from ._math import IterativeSolveWdsAndH
+    from ._math_cupy import IterativeSolveWdsAndH_CuPy
+    from ._math_pytorch import IterativeSolveWdsAndH_PyTorch
 
 
     from ._debug import PrenormalizeDebug
@@ -327,7 +333,7 @@ class SimilarSampleCrossOmicNMF:
 
         
         logging.warning("[6/6] Iteratively solving the W matrices...")
-        res_Wds, res_H = self.IterativeSolveWdsAndH_CuPy(
+        res_Wds, res_H = self.IterativeSolveWdsAndH_PyTorch(
             initialized_Wds = Wds,
             initialized_H = H,
             additional_tasks = additional_tasks,

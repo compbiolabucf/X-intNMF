@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import psutil
 
 from datetime import datetime
 from tqdm import tqdm
@@ -170,9 +171,10 @@ for latent_size, alpha, beta in running_pack[2:]:
                 alpha=alpha,
                 betas=beta,
                 gammas=1,
-                max_iter= 10000 if latent_size < 100 else 5000,
+                max_iter= 10000 if latent_size < 26 else 5000,
                 tol=1e-4,
-                verbose=True
+                verbose=True,
+                gpu=SELECTED_GPU_DEVICE,
             )
 
             # try:
@@ -199,7 +201,7 @@ for latent_size, alpha, beta in running_pack[2:]:
 
     except Exception as e:
         logging.error(f"Error occurred during run: {e}")
-        # raise e
+        raise e
         continue
 
         

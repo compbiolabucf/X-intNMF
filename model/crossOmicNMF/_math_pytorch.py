@@ -20,51 +20,60 @@
 from typing import List, Tuple, Union, Literal, Any, Callable, Dict
 import pandas as pd
 import numpy as np
-import cupy as cp
 import logging
 import mlflow
-
+import torch
+from torch import Tensor
 
 
 
 # @jit(forceobj=True)
-def cupy_objective_function(
+def torch_objective_function(
     # self,
 
-    Xs:                 List[cp.ndarray], 
-    Ws:                 List[cp.ndarray], 
-    H:                  cp.ndarray, 
-    similarity_block:   List[List[cp.ndarray]], 
-    degree_block:       List[List[cp.ndarray]], 
+    Xs:                 List[Tensor], 
+    Ws:                 List[Tensor], 
+    H:                  Tensor, 
+    similarity_block:   List[List[Tensor]], 
+    degree_block:       List[List[Tensor]], 
     
     alpha:              float, 
-    betas:              Union[cp.ndarray, List[float]],
-    gammas:             Union[cp.ndarray, List[float]],
+    betas:              Tensor,
+    gammas:             Tensor,
 
-    iteration:          int
-):
+    iteration:          int,
+    device:             str,
+) -> np.float64:
 
     # Calculate the reconstruction error
-    reconstruction_error = 0 #cp.sum(cp.array([cp.linalg.norm(X - W @ H, ord="fro") ** 2 for X, W in zip(Xs, Ws)])) # np.linalg.norm(X_concatted - W_concatted @ H, ord="fro") ** 2
+    reconstruction_error = 0 
     for p in range(len(Ws)):
-        reconstruction_error += cp.linalg.norm(Xs[p] - Ws[p] @ H, ord="fro") ** 2
+        reconstruction_error += torch.norm(Xs[p] - Ws[p] @ H, p="fro") ** 2
+    reconstruction_error = reconstruction_error.detach().cpu().numpy()
 
 
     # Graph regularization term
     # laplacian_block = np.block(degree_block) - np.block(similarity_block)
     # graph_regularization = alpha/2 * np.trace(W_concatted.T @ laplacian_block @ W_concatted)
-    graph_regularization = cp.float64(0.0)
+    graph_regularization = 0.0
     for p in range(len(Ws)):
         for q in range(len(Ws)):
-            graph_regularization += alpha/2 * cp.trace(Ws[p].T @ (degree_block[p][q] - similarity_block[p][q]) @ Ws[q])
+            graph_regularization += alpha/2 * torch.trace(Ws[p].T @ (degree_block[p][q] - similarity_block[p][q]) @ Ws[q]).detach().cpu().numpy()
+            
 
 
 
     # Sparsity control term for W
-    sparsity_control_for_Ws = cp.array([cp.linalg.norm(W, ord=1) for W in Ws]) @ cp.array(betas)
+    sparsity_control_for_Ws = Tensor([torch.norm(W, p=1) for W in Ws]).to(device) @ betas
+    sparsity_control_for_Ws = sparsity_control_for_Ws.detach().cpu().numpy()
+
 
     # Sparsity control term for H
-    sparsity_control_for_H = cp.linalg.norm(H, ord=1, axis = 0) @ cp.array(gammas)
+    sparsity_control_for_H = torch.norm(H, p=1, dim=0) @ gammas
+    sparsity_control_for_H = sparsity_control_for_H.detach().cpu().numpy()
+    
+
+    # Objective function
     f = 1/2 * reconstruction_error + graph_regularization + sparsity_control_for_Ws + sparsity_control_for_H
 
 
@@ -79,30 +88,31 @@ def cupy_objective_function(
 
 
 # @jit(forceobj=True)
-def cupy_update(
+def torch_update(
     # self,
 
-    Xs:                 List[cp.ndarray], 
-    Ws_current:         List[cp.ndarray], 
-    H:                  cp.ndarray, 
-    similarity_block:   List[List[cp.ndarray]], 
-    degree_block:       List[List[cp.ndarray]], 
+    Xs:                 List[Tensor], 
+    Ws_current:         List[Tensor], 
+    H:                  Tensor, 
+    similarity_block:   List[List[Tensor]], 
+    degree_block:       List[List[Tensor]], 
 
     alpha:              float, 
-    betas:              Union[cp.ndarray, List[float]],
-    gammas:             Union[cp.ndarray, List[float]]
-) -> Tuple[List[cp.ndarray], cp.ndarray]:
+    betas:              Union[Tensor, List[float]],
+    gammas:             Union[Tensor, List[float]],
+) -> Tuple[List[Tensor], Tensor]:
+    
     next_Ws = []
     for d, W in enumerate(Ws_current):
-        Ariel = Xs[d] @ H.T + alpha * cp.sum(cp.array([similarity_block[d][p] @ Wp for p, Wp in enumerate(Ws_current)]), axis=0)
-        Belle = W @ H @ H.T + alpha * cp.sum(cp.array([degree_block[d][p] @ Wp for p, Wp in enumerate(Ws_current)]), axis=0) + betas[d]
+        Ariel = Xs[d] @ H.T + alpha * torch.sum(torch.stack([similarity_block[d][p] @ Wp for p, Wp in enumerate(Ws_current)]), dim=0)
+        Belle = W @ H @ H.T + alpha * torch.sum(torch.stack([degree_block[d][p] @ Wp for p, Wp in enumerate(Ws_current)]), dim=0) + betas[d]
 
         next_W = Ariel / Belle * W
         next_Ws.append(next_W)
 
 
-    Ariel = cp.sum(cp.array([W.T @ X for W, X in zip(next_Ws, Xs)]), axis=0)
-    Cindy = cp.sum(cp.array([W.T @ W @ H for W in next_Ws]), axis=0) + cp.broadcast_to(gammas, (H.shape[0], H.shape[1]))
+    Ariel = torch.sum(torch.stack([W.T @ X for W, X in zip(next_Ws, Xs)]), dim=0)
+    Cindy = torch.sum(torch.stack([W.T @ W @ H for W in next_Ws]), dim=0) + torch.broadcast_to(gammas, (H.shape[0], H.shape[1]))
     next_H = Ariel / Cindy * H
     
 
@@ -112,8 +122,7 @@ def cupy_update(
 
 
 
-
-def IterativeSolveWdsAndH_CuPy(
+def IterativeSolveWdsAndH_PyTorch(
     self,
     initialized_Wds:            Union[List[np.ndarray]], 
     initialized_H:              Union[np.ndarray], 
@@ -139,16 +148,23 @@ def IterativeSolveWdsAndH_CuPy(
         W: List[np.ndarray]
             A list of W matrices of shape (m_d, k)
     """
-    import cupy as cp
-    
 
     # Construct the omic indices for matrix splitting
     omics_indices = np.cumsum(self.m)[:-1] # Drop the final index
     
+
+    
     # Construct the normalized similarity matrix
     E = np.block(self.E)
     D = np.diag(1 / np.sqrt(np.sum(E, axis=1)))
-    E_normalized = D @ E @ D
+
+    # Pytorch Extension
+    E_tensor = Tensor(E).to(self.device)
+    D_tensor = Tensor(D).to(self.device)
+    E_normalized_tensor = D_tensor @ E_tensor @ D_tensor
+    E_normalized = E_normalized_tensor.detach().cpu().numpy()
+
+    # Convert the similarity block to a list of matrices
     E = self.convert_block_matrix_to_table_of_matrices(E_normalized, omics_indices)
 
     # Construct the degree matrix
@@ -168,18 +184,19 @@ def IterativeSolveWdsAndH_CuPy(
         logging.info("  ".join(f"{blk.shape}" for blk in hblk))
 
 
-    # CuPy Extension
-    initialized_Wds = [cp.asarray(W) for W in initialized_Wds]
-    initialized_H = cp.asarray(initialized_H)
+
+
+    # PyTorch Extension
+    initialized_Wds = [Tensor(W).to(self.device) for W in initialized_Wds]
+    initialized_H = Tensor(initialized_H).to(self.device)
     for p in range(self.D):
         for q in range(self.D):
-            E[p][q] = cp.asarray(E[p][q])
-            degree_block[p][q] = cp.asarray(degree_block[p][q])
-    alpha = cp.float64(self.alpha)
-    betas = cp.asarray(self.betas)
-    gammas = cp.asarray(self.gammas)
-    Xd = [cp.asarray(X) for X in self.Xd]
-
+            E[p][q] = Tensor(E[p][q]).to(self.device)
+            degree_block[p][q] = Tensor(degree_block[p][q]).to(self.device)
+    alpha = self.alpha
+    betas = Tensor(self.betas).to(self.device)
+    gammas = Tensor(self.gammas).to(self.device)
+    Xd = [Tensor(X).to(self.device) for X in self.Xd]
 
 
     
@@ -187,7 +204,7 @@ def IterativeSolveWdsAndH_CuPy(
     Ws = initialized_Wds
     H = initialized_H
     iteration = 0
-    curr_obj = cupy_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration)
+    curr_obj = torch_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration, self.device)
     mlflow.log_metric("objective_function", curr_obj, step=iteration)
 
     if additional_tasks is not None: 
@@ -196,21 +213,22 @@ def IterativeSolveWdsAndH_CuPy(
         else: 
             for task in additional_tasks: task(Ws, H, iteration)
 
+
     while True:
         iteration += 1
-        new_Ws, new_H = cupy_update(Xd, Ws, H, E, degree_block, alpha, betas, gammas)
+        new_Ws, new_H = torch_update(Xd, Ws, H, E, degree_block, alpha, betas, gammas)
 
         # Log the delta of Ws and H
         for W_idx, W in enumerate(new_Ws):
-            mlflow.log_metric(f"W{W_idx}_delta", cp.linalg.norm(W - Ws[W_idx], 'fro'), step=iteration)
-        mlflow.log_metric("H_delta", cp.linalg.norm(new_H - H, 'fro'), step=iteration)
+            mlflow.log_metric(f"W{W_idx}_delta", torch.norm(new_Ws[W_idx] - Ws[W_idx], p="fro").detach().cpu().numpy(), step=iteration)
+        mlflow.log_metric(f"H_delta", torch.norm(new_H - H, p="fro").detach().cpu().numpy(), step=iteration)
 
         # Update the Ws and H
         Ws = new_Ws
         H = new_H
 
         # Compute the objective function
-        next_obj = cupy_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration)
+        next_obj = torch_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration, self.device)
         delta = next_obj - curr_obj
         logging.info(f"Iteration {iteration}: Objective function = {next_obj}, delta = {delta}")
 
@@ -224,17 +242,16 @@ def IterativeSolveWdsAndH_CuPy(
 
         # Log the objective function and delta to MLFlow
         mlflow.log_metric("objective_function", next_obj, step=iteration)
-        mlflow.log_metric("delta", cp.abs(delta), step=iteration)
+        mlflow.log_metric("delta", np.abs(delta), step=iteration)
 
         # Break condition
-        if cp.abs(delta) < self.tol or iteration >= self.max_iter:
+        if np.abs(delta) < self.tol or iteration >= self.max_iter:
             break
         
         curr_obj = next_obj
 
     mlflow.log_metric("Iterations to converge", iteration)
 
-    Ws = [W.get() for W in Ws]
-    H = H.get()
+    Ws = [W.detach().cpu().numpy() for W in Ws]
+    H = H.detach().cpu().numpy()
     return Ws, H
-   

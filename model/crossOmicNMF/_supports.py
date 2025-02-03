@@ -143,7 +143,8 @@ def density_agg_func_selection(
 def convert_block_matrix_to_table_of_matrices(
     self,
     block_matrix: np.ndarray,
-    size_list: List[int]
+    size_list: List[int],
+    flavor: Literal["numpy", "cupy", "pytorch"] = "numpy"
 ) -> List[List[np.ndarray]]:
     """
         Convert the 2-D block matrix to the table of matrices
@@ -160,9 +161,24 @@ def convert_block_matrix_to_table_of_matrices(
         `table_of_matrices`: List[List[np.ndarray]]
             The table of matrices of shape (D, D, m_i, m_j)
     """
-    return [
-        list(np.hsplit(horizontal_block, size_list))
-        for horizontal_block 
-        in np.vsplit(block_matrix, size_list)
-    ]
+
+    if flavor == "numpy": 
+        return [
+            list(np.hsplit(horizontal_block, size_list))
+            for horizontal_block 
+            in np.vsplit(block_matrix, size_list)
+        ]
+    elif flavor == "cupy":
+        return [
+            list(cp.hsplit(horizontal_block, size_list))
+            for horizontal_block 
+            in cp.vsplit(block_matrix, size_list)
+        ]
+    elif flavor == "pytorch":
+        import torch
+        return [
+            list(torch.hsplit(horizontal_block, size_list))
+            for horizontal_block 
+            in torch.vsplit(block_matrix, size_list)
+        ]
 

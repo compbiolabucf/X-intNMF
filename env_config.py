@@ -21,6 +21,7 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import argparse
+import torch
 import s3fs
 
 
@@ -71,7 +72,23 @@ else: raise ValueError("Invalid storage mode")
     
 
 
-if args.run_mode == "luad":
+if args.run_mode == "test":
+    experiment_name  = 'test_experiment'
+    mongo_collection = 'test'
+    dataset_id       = 'test'
+    DATA_PATH        = f'{base_data_path}/BreastCancer/processed_micro'
+    TARG_PATH        = f'{base_data_path}/BreastCancer/processed_micro'
+    RESULT_PRE_PATH  = f'{base_result_path}/test'
+
+elif args.run_mode == "brca":
+    experiment_name  = 'SimilarSampleCrossOmicNMFv3_BRCA_3Omics'
+    mongo_collection = 'BRCA'
+    dataset_id       = 'BRCA'
+    DATA_PATH        = f'{base_data_path}/BreastCancer/processed_3_omics_mRNA_miRNA_methDNA'
+    TARG_PATH        = f'{base_data_path}/BreastCancer/clinical_testdata_3_omics_mRNA_miRNA_methDNA'
+    RESULT_PRE_PATH  = f'{base_result_path}/brca'
+
+elif args.run_mode == "luad":
     experiment_name  = 'SimilarSampleCrossOmicNMFv3_LUAD_3Omics'
     mongo_collection = 'LUAD'
     dataset_id       = 'LUAD'
@@ -86,14 +103,14 @@ elif args.run_mode == "ov":
     DATA_PATH        = f'{base_data_path}/OvarianCancer/processed_3_omics_mRNA_miRNA_methDNA'
     TARG_PATH        = f'{base_data_path}/OvarianCancer/clinical_testdata_3_omics_mRNA_miRNA_methDNA'
     RESULT_PRE_PATH  = f'{base_result_path}/ov'
-
-elif args.run_mode == "brca":
+    
+elif args.run_mode == "hparams_opts_brca":
     experiment_name  = 'SimilarSampleCrossOmicNMFv3_BRCA_3Omics'
-    mongo_collection = 'BRCA'
+    mongo_collection = 'HPARAMS_OPTS_3OMICS'
     dataset_id       = 'BRCA'
     DATA_PATH        = f'{base_data_path}/BreastCancer/processed_3_omics_mRNA_miRNA_methDNA'
     TARG_PATH        = f'{base_data_path}/BreastCancer/clinical_testdata_3_omics_mRNA_miRNA_methDNA'
-    RESULT_PRE_PATH  = f'{base_result_path}/brca'
+    RUN_CFG_PATH     = f'{base_result_path}/brca'
 
 elif args.run_mode == "hparams_opts_luad":
     experiment_name  = 'SimilarSampleCrossOmicNMFv3_LUAD_3Omics'
@@ -110,21 +127,20 @@ elif args.run_mode == "hparams_opts_ov":
     DATA_PATH        = f'{base_data_path}/OvarianCancer/processed_3_omics_mRNA_miRNA_methDNA'
     TARG_PATH        = f'{base_data_path}/OvarianCancer/clinical_testdata_3_omics_mRNA_miRNA_methDNA'
     RUN_CFG_PATH     = f'{base_result_path}/ov'
-    
-elif args.run_mode == "hparams_opts_brca":
-    experiment_name  = 'SimilarSampleCrossOmicNMFv3_BRCA_3Omics'
-    mongo_collection = 'HPARAMS_OPTS_3OMICS'
-    dataset_id       = 'BRCA'
-    DATA_PATH        = f'{base_data_path}/BreastCancer/processed_3_omics_mRNA_miRNA_methDNA'
-    TARG_PATH        = f'{base_data_path}/BreastCancer/clinical_testdata_3_omics_mRNA_miRNA_methDNA'
-    RUN_CFG_PATH     = f'{base_result_path}/brca'
 
-
-
-    
 else: raise ValueError("Invalid run mode")
 
 
+    
+
+
+
+SELECTED_GPU_DEVICE = None
 if cp.cuda.is_available():
     gpu = np.clip(args.gpu, 0, cp.cuda.runtime.getDeviceCount()-1)
     cp.cuda.runtime.setDevice(gpu)
+    SELECTED_GPU_DEVICE = gpu
+if torch.cuda.is_available():
+    gpu = np.clip(args.gpu, 0, torch.cuda.device_count()-1)
+    SELECTED_GPU_DEVICE = gpu
+
