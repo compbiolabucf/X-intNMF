@@ -18,6 +18,7 @@
 
 from typing import List, Tuple, Union, Literal, Any, Callable, Dict
 from sklearn.linear_model import Lasso
+from filelock import FileLock
 import numpy as np
 import pandas as pd
 import logging
@@ -292,34 +293,43 @@ class SimilarSampleCrossOmicNMF:
 
 
 
-        # -----------------------------------------------------------------------------------------------
-        # 4.Initialize W matrices
-        # -----------------------------------------------------------------------------------------------
-        logging.warning("[4/6] Initializing W matrices...")
-        Wds = self.InitializeWd(
-            method = initialize_Wd_method,
-            silence_verbose_override = True
-        )
-        for i, Wd in enumerate(Wds):
-            logging.warning(f"Initialized Wd[{i}] with shape {Wd.shape}")
-            # logging.warning(Wd)
-        logging.warning("Initialization of W matrices completed")
+        logging.info("Acquiring lock...")
+        lock = FileLock("/tmp/SimilarSampleCrossOmicNMF.lock")
+
+        with lock:
+            logging.warning("Acquired lock")
+            logging.warning("[4/6] Initializing W matrices...")
+
+            
+            # -----------------------------------------------------------------------------------------------
+            # 4.Initialize W matrices - Required lock. If two processes are running at the same time will risk freezing
+            # -----------------------------------------------------------------------------------------------
+            Wds = self.InitializeWd(
+                method = initialize_Wd_method,
+                silence_verbose_override = True
+            )
+            for i, Wd in enumerate(Wds):
+                logging.warning(f"Initialized Wd[{i}] with shape {Wd.shape}")
+                # logging.warning(Wd)
+            logging.warning("Initialization of W matrices completed")
 
 
 
 
 
 
-        # -----------------------------------------------------------------------------------------------
-        # 5.Solve the H matrix using Lasso
-        # -----------------------------------------------------------------------------------------------
-        logging.warning("[5/6] Solving the H matrix using Lasso...")
-        H = self.LassoSolveH(
-            initialized_Wds = Wds,
-            use_cross_validation = use_cross_validation,
-        )
-        logging.warning(f"Solved H with shape {H.shape}")
-        logging.warning("Solving H matrix completed")
+            # -----------------------------------------------------------------------------------------------
+            # 5.Solve the H matrix using Lasso - Required lock
+            # -----------------------------------------------------------------------------------------------
+            logging.warning("[5/6] Solving the H matrix using Lasso...")
+            H = self.LassoSolveH(
+                initialized_Wds = Wds,
+                use_cross_validation = use_cross_validation,
+            )
+            logging.warning(f"Solved H with shape {H.shape}")
+            logging.warning("Solving H matrix completed")
+
+            logging.warning("Lock released")
 
 
 

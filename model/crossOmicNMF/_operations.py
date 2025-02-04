@@ -19,6 +19,7 @@
 import os
 import time
 import mlflow
+import random
 import logging
 import numpy as np
 import pandas as pd
@@ -254,9 +255,10 @@ def InitializeWd(
             A list of W matrices of shape (m_d, k)
     """
 
-    while ((cpu_high := psutil.cpu_percent()) > 80): 
-        logging.warning(f"CPU usage is too high ({cpu_high}%), waiting for 10 seconds...")
-        time.sleep(10)
+    while ((cpu_high := psutil.cpu_percent()) > 50): 
+        wait = random.randint(10, 20)
+        logging.warning(f"CPU usage is too high ({cpu_high}%), waiting for {wait} seconds...")
+        time.sleep(wait)
     logging.info("CPU clear. Initializing W matrices...")
 
     # Compute
@@ -336,10 +338,11 @@ def LassoSolveH(
     H_coeffs = []
 
     # Check CPU usage before proceed
-    while ((cpu_high := psutil.cpu_percent()) > 80): 
-        logging.warning(f"CPU usage is too high ({cpu_high}%), waiting for 10 seconds...")
-        time.sleep(10)
-    logging.info("CPU clear. Solving H matrix...")
+    while ((cpu_high := psutil.cpu_percent()) > 50): 
+        wait = random.randint(10, 20)
+        logging.warning(f"CPU usage is too high ({cpu_high}%), waiting for {wait} seconds...")
+        time.sleep(wait)
+    logging.info("CPU clear. Initializing W matrices...")
     
 
     # Solve individual column of H 
@@ -350,7 +353,9 @@ def LassoSolveH(
                 positive = True, 
                 cv = 5, 
                 verbose = False,
-                n_jobs = -1,
+                n_jobs = 8,
+                max_iter=100,
+                tol=1e-3,
             );
         else:
             lasso = Lasso(
@@ -371,6 +376,7 @@ def LassoSolveH(
         
         # if index % 10 == 0:
         #     while ((cpu_high := psutil.cpu_percent()) > 80): 
+        #         wait = random.randint(1, 5)
         #         logging.warning(f"CPU usage is too high ({cpu_high}%) at iteration #{index}, waiting for 3 seconds...")
         #         time.sleep(3)
         #     logging.info("CPU clear. Continue solving H matrix...")
