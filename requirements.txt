@@ -11,6 +11,9 @@ openpyxl
 colorama
 streamlit
 
+lifeline
+scikit-survival
+
 s3fs
 mlflow
 cupy-cuda12x

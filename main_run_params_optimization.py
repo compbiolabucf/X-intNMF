@@ -56,7 +56,7 @@ if __name__ == '__main__':
         username='bu1th4nh',
         password='ariel.anna.elsa',
     )
-    mongo_db = mongo['SimilarSampleCrossOmicNMF']
+    mongo_db = mongo[mongo_db_name]
     collection = mongo_db[mongo_collection]
 
 
@@ -90,12 +90,12 @@ if __name__ == '__main__':
 
     # Preload data
     logging.info("Preloading data")
-    for cfg in run_config_folders: 
+    for cfg in RUN_CFG_PATH: 
         cfg_id = cfg.split('/')[-1]
         print(cfg_id, cfg)
         if 'baseline' in cfg_id: continue
         run_cfg_data[cfg_id] = pd.read_parquet(f'{cfg}/H.parquet', storage_options=storage_options)
-    for tar in target_folders:
+    for tar in TARG_PATH:
         target_id = str(tar.split('/')[-1]).split('.')[0]
         print(target_id, tar)
         tar_data[target_id] = pd.read_parquet(tar, storage_options=storage_options)
