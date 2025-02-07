@@ -33,6 +33,8 @@ from tqdm import tqdm
 from datetime import datetime
 from typing import List, Dict, Any, Tuple, Union, Literal
 
+tqdm.pandas()
+
 def randomize_run_name():
     return f"{random.choice(royals_name)}_{random.choice(royals_name)}-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
@@ -57,7 +59,7 @@ if __name__ == '__main__':
         password='ariel.anna.elsa',
     )
     mongo_db = mongo[mongo_db_name]
-    collection = mongo_db[mongo_collection]
+    collection = mongo_db['HPARAMS_OPTS']
 
 
     def find_run(dataset_id: str, target_id: str, test_id: str, config: str, classifier: str): return collection.find_one({
@@ -80,6 +82,8 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------
     # Get all runs and testdata
     logging.info("Fetching all runs and testdata")
+    run_config_folders = [f's3://{a}' for a in s3.ls(RUN_CFG_PATH)] if s3 is not None else os.listdir(RUN_CFG_PATH)
+    target_folders = [f's3://{a}' for a in s3.ls(TARG_PATH)] if s3 is not None else os.listdir(TARG_PATH)
     
     
 
@@ -90,15 +94,21 @@ if __name__ == '__main__':
 
     # Preload data
     logging.info("Preloading data")
-    for cfg in RUN_CFG_PATH: 
+    for cfg in tqdm(run_config_folders, desc='Preloading config'): 
         cfg_id = cfg.split('/')[-1]
-        print(cfg_id, cfg)
+        # print(cfg_id, cfg)
         if 'baseline' in cfg_id: continue
-        run_cfg_data[cfg_id] = pd.read_parquet(f'{cfg}/H.parquet', storage_options=storage_options)
-    for tar in TARG_PATH:
+        try:
+            run_cfg_data[cfg_id] = pd.read_parquet(f'{cfg}/H.parquet', storage_options=storage_options)
+        except FileNotFoundError:
+            logging.error(f"Config {cfg} not found. Skipping...")
+    for tar in tqdm(target_folders, desc='Preloading target data'):
         target_id = str(tar.split('/')[-1]).split('.')[0]
-        print(target_id, tar)
-        tar_data[target_id] = pd.read_parquet(tar, storage_options=storage_options)
+        # print(target_id, tar)
+        try:
+            tar_data[target_id] = pd.read_parquet(tar, storage_options=storage_options)
+        except FileNotFoundError:
+            logging.error(f"Target {tar} not found. Skipping...")
 
 
 
@@ -110,7 +120,7 @@ if __name__ == '__main__':
         for test_id in tqdm(target.index, desc = f'Loading {target_id} to queue'):
             for cfg_id in run_cfg_data.keys():
                 for classifier in classification_methods_list:
-                    # if find_run(dataset_id, target_id, test_id, cfg_id, classifier) is not None: continue
+                    if find_run(dataset_id, target_id, test_id, cfg_id, classifier) is not None: continue
                     run_queue.append({
                         'target_id': target_id,
                         'test_id': test_id,
@@ -126,11 +136,12 @@ if __name__ == '__main__':
     logging.info("Starting classification")
     wrapper = HParamsParallelWrapper(run_cfg_data, tar_data, dataset_id)
     if args.parallel:
-        with multiprocessing.Pool(processes=20) as pool:
+        with multiprocessing.Pool(processes=10) as pool:
             results = pool.starmap(wrapper, run_queue)
     else:   
-        results = []
-        for run in tqdm(run_queue, desc="Running classification"): results.append(wrapper.eval_nonparallel(run))    
+        # results = []
+        results = pd.Series(run_queue).progress_apply(wrapper.eval_nonparallel).tolist()
+        # for run in tqdm(run_queue, desc="Running classification"): 
     logging.info("Classification done, saving results")
 
 

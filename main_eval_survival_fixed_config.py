@@ -9,13 +9,14 @@
 
 # -----------------------------------------------------------------------------------------------
 # Author: Bùi Tiến Thành - Tien-Thanh Bui (@bu1th4nh)
-# Title: main_eval_classification.py
-# Date: 2024/12/06 12:20:06
+# Title: main_eval_survival_fixed_config.py
+# Date: 2025/02/06 16:12:36
 # Description: 
 # 
-# (c) 2024 bu1th4nh. All rights reserved. 
+# (c) 2025 bu1th4nh. All rights reserved. 
 # Written with dedication in the University of Central Florida, EPCOT and the Magic Kingdom.
 # -----------------------------------------------------------------------------------------------
+
 
 
 import os
@@ -105,17 +106,11 @@ if __name__ == '__main__':
         cfg_id = cfg.split('/')[-1]
         # print(cfg_id, cfg)
         if 'baseline' in cfg_id: continue
-        try:
-            run_cfg_data[cfg_id] = pd.read_parquet(f'{cfg}/H.parquet', storage_options=storage_options)
-        except FileNotFoundError:
-            logging.error(f"Config {cfg} not found. Skipping...")
+        run_cfg_data[cfg_id] = pd.read_parquet(f'{cfg}/H.parquet', storage_options=storage_options)
     for tar in tqdm(target_folders, desc='Preloading target data'):
         target_id = str(tar.split('/')[-1]).split('.')[0]
         # print(target_id, tar)
-        try:
-            tar_data[target_id] = pd.read_parquet(tar, storage_options=storage_options)
-        except FileNotFoundError:
-            logging.error(f"Target {tar} not found. Skipping...")
+        tar_data[target_id] = pd.read_parquet(tar, storage_options=storage_options)
 
 
     # -----------------------------------------------------------------------------------------------

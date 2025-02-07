@@ -68,16 +68,29 @@ mlflow.set_experiment(experiment_name)
 # -----------------------------------------------------------------------------------------------
 # Data
 # -----------------------------------------------------------------------------------------------
-bipart_data = pd.read_parquet(f'{DATA_PATH}/bipart.parquet', storage_options=storage_options)
-methDNA = pd.read_parquet(f'{DATA_PATH}/methDNA.parquet', storage_options=storage_options)
-miRNA = pd.read_parquet(f'{DATA_PATH}/miRNA.parquet', storage_options=storage_options)
-mRNA = pd.read_parquet(f'{DATA_PATH}/mRNA.parquet', storage_options=storage_options)
+if args.omics_mode == "3omics":
 
-features_list = [mRNA.index.to_list(), miRNA.index.to_list(), methDNA.index.to_list()]   
+    bipart_data = pd.read_parquet(f'{DATA_PATH}/bipart.parquet', storage_options=storage_options)
+    methDNA = pd.read_parquet(f'{DATA_PATH}/methDNA.parquet', storage_options=storage_options)
+    miRNA = pd.read_parquet(f'{DATA_PATH}/miRNA.parquet', storage_options=storage_options)
+    mRNA = pd.read_parquet(f'{DATA_PATH}/mRNA.parquet', storage_options=storage_options)
+
+    features_list = [mRNA.index.to_list(), miRNA.index.to_list(), methDNA.index.to_list()]   
+    omics_data = [mRNA.to_numpy(np.float64, True), miRNA.to_numpy(np.float64, True), methDNA.to_numpy(np.float64, True)]
+    
+elif args.omics_mode == "2omics":
+
+    bipart_data = pd.read_parquet(f'{DATA_PATH}/bipart.parquet', storage_options=storage_options)
+    miRNA = pd.read_parquet(f'{DATA_PATH}/miRNA.parquet', storage_options=storage_options)
+    mRNA = pd.read_parquet(f'{DATA_PATH}/mRNA.parquet', storage_options=storage_options)
+
+    features_list = [mRNA.index.to_list(), miRNA.index.to_list()]   
+    omics_data = [mRNA.to_numpy(np.float64, True), miRNA.to_numpy(np.float64, True)]
+
+
+
+
 sample_list = mRNA.columns.to_list()
-
-
-omics_data = [mRNA.to_numpy(np.float64, True), miRNA.to_numpy(np.float64, True), methDNA.to_numpy(np.float64, True)]
 off_diag_interactions = {(0, 1): bipart_data.to_numpy(np.float64, True)}
 m = [omic.shape[0] for omic in omics_data]
 
