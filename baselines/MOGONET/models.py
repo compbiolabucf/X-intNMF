@@ -34,11 +34,16 @@ class GraphConvolution(nn.Module):
     
 
 class GCN_E(nn.Module):
+    methyl_activated = False
+
     def __init__(self, in_dim, hgcn_dim, dropout):
         super().__init__()
         self.gc1 = GraphConvolution(in_dim, hgcn_dim[0])
         self.gc2 = GraphConvolution(hgcn_dim[0], hgcn_dim[1])
-        # self.gc3 = GraphConvolution(hgcn_dim[1], hgcn_dim[2])
+
+        if len(hgcn_dim) == 3:
+            self.gc3 = GraphConvolution(hgcn_dim[1], hgcn_dim[2])
+            self.methyl_activated = True
         self.dropout = dropout
 
     def forward(self, x, adj):
@@ -48,8 +53,10 @@ class GCN_E(nn.Module):
         x = self.gc2(x, adj)
         x = F.leaky_relu(x, 0.25)
         x = F.dropout(x, self.dropout, training=self.training)
-        # x = self.gc3(x, adj)
-        # x = F.leaky_relu(x, 0.25)
+
+        if self.methyl_activated:
+            x = self.gc3(x, adj)
+            x = F.leaky_relu(x, 0.25)
         
         return x
 

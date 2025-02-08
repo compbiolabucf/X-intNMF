@@ -37,8 +37,9 @@ pickup_leftoff_mode = True
 # Args
 # -----------------------------------------------------------------------------------------------
 parser = argparse.ArgumentParser()
-parser.add_argument("--run_mode", type=str, required=True)
 parser.add_argument("--storage_mode", type=str, required=True)
+parser.add_argument("--omics_mode", type=str, required=True)
+parser.add_argument("--disease", type=str, required=True)
 parser.add_argument("--gpu", type=int, required=False, default=0)
 parser.add_argument("--parallel", type=bool, required=False, default=False)
 args = parser.parse_args()
@@ -60,7 +61,7 @@ elif args.storage_mode == "s3":
     storage_options = {
         'key': 'bu1th4nh',
         'secret': 'ariel.anna.elsa',
-        'endpoint_url': 'http://localhost:9000',
+        'endpoint_url': 'http://localhost:19000',
     }
     s3 = s3fs.S3FileSystem(
         key=storage_options['key'],
@@ -76,7 +77,7 @@ if args.omics_mode == "3omics":
     mongo_db_name           = 'SimilarSampleCrossOmicNMF_3Omics'
     base_result_path        = f'{base_result_path}/SimilarSampleCrossOmicNMF_3Omics'
     omic_folder             = 'processed_3_omics_mRNA_miRNA_methDNA'
-    cls_target_folder       = 'survival_testdata_3_omics_mRNA_miRNA_methDNA'
+    cls_target_folder       = 'clinical_testdata_3_omics_mRNA_miRNA_methDNA'
     surv_target_folder      = 'survival_testdata_3_omics_mRNA_miRNA_methDNA'
     experiment_addon_ext    = '_3Omics'
 elif args.omics_mode == "2omics":
@@ -94,7 +95,8 @@ if args.disease == "brca":
     mongo_collection        = 'BRCA'
     disease_data_folder     = 'BreastCancer'
     disease_result_folder   = 'brca'
-    experiment_name         = f'SimilarSampleCrossOmicNMFv3_BRCA{experiment_addon_ext}'
+    experiment_name         = 'test_experiment'
+    # experiment_name         = f'SimilarSampleCrossOmicNMFv3_BRCA{experiment_addon_ext}'
 elif args.disease == "luad":
     dataset_id              = 'LUAD'
     mongo_collection        = 'LUAD'

@@ -77,8 +77,8 @@ if __name__ == '__main__':
     
 
 
-    run_name = 'baseline_MOGONET' if args.run_mode != "test" else randomize_run_name()
-    logging.info(f"Starting MOGONET evaluation on {args.run_mode} mode, storage mode {args.storage_mode}")
+    run_name = 'baseline_MOGONET' if args.disease != "test" else randomize_run_name()
+    logging.info(f"Starting MOGONET evaluation on {args.disease} mode, storage mode {args.storage_mode}")
     # -----------------------------------------------------------------------------------------------
     # MongoDB
     # -----------------------------------------------------------------------------------------------
@@ -107,8 +107,8 @@ if __name__ == '__main__':
     # Hyperparameters
     # -----------------------------------------------------------------------------------------------
     adj_parameter = 10 # Retain BRCA config from MOGONET
-    num_epoch_pretrain = 500 if args.run_mode != "test" else 3
-    num_epoch = 2500 if args.run_mode != "test" else 3
+    num_epoch_pretrain = 500 if args.disease != "test" else 3
+    num_epoch = 2500 if args.disease != "test" else 3
     lr_e_pretrain = 1e-3
     lr_e = 5e-4
     lr_c = 1e-3
@@ -187,7 +187,7 @@ if __name__ == '__main__':
                     num_epoch,
 
                     result_queue,
-                    (args.run_mode == "test")
+                    (args.disease == "test")
                 )
             )    
             logging.info(f"Starting process for target {target_id} on device {armed_gpu}")
@@ -209,7 +209,7 @@ if __name__ == '__main__':
                 num_epoch = num_epoch,
 
                 result_queue = None,
-                test_mode = (args.run_mode == "test")
+                test_mode = (args.disease == "test")
             )
             result_queue.append(sequential_result)
             logging.info(f"Finished evaluation for target {target_id}")

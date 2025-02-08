@@ -292,6 +292,10 @@ def custom___evaluate_one_target(
     test_ids = list(testdata.index) if test_mode else list(testdata.index)
     results = {}
 
+    
+    for i in range(len(omic_layers)):
+        logging.info(f"Omic layer {i} has shape {omic_layers[i].shape}")
+
     # Iterate through each test
     for test_id in tqdm(test_ids, desc=f"Evaluating target {target_name} on testdata, GPU {armed_gpu}"):
         # Get sample IDs
