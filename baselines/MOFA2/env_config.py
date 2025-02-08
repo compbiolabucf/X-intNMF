@@ -39,7 +39,6 @@ pickup_leftoff_mode = True
 # -----------------------------------------------------------------------------------------------
 parser = argparse.ArgumentParser()
 parser.add_argument("--storage_mode", type=str, required=True)
-parser.add_argument("--run_mode", type=str, required=True)
 parser.add_argument("--omics_mode", type=str, required=True)
 parser.add_argument("--disease", type=str, required=True)
 parser.add_argument("--gpu", type=int, required=False, default=0)
@@ -79,7 +78,7 @@ if args.omics_mode == "3omics":
     mongo_db_name           = 'SimilarSampleCrossOmicNMF_3Omics'
     base_result_path        = f'{base_result_path}/SimilarSampleCrossOmicNMF_3Omics'
     omic_folder             = 'processed_3_omics_mRNA_miRNA_methDNA'
-    cls_target_folder       = 'survival_testdata_3_omics_mRNA_miRNA_methDNA'
+    cls_target_folder       = 'clinical_testdata_3_omics_mRNA_miRNA_methDNA'
     surv_target_folder      = 'survival_testdata_3_omics_mRNA_miRNA_methDNA'
     experiment_addon_ext    = '_3Omics'
 elif args.omics_mode == "2omics":
@@ -130,15 +129,4 @@ RESULT_PRE_PATH = f'{base_result_path}/{disease_result_folder}'
 
 
 
-
-
-# GPU
-SELECTED_GPU_DEVICE = None
-if cp.cuda.is_available():
-    gpu = np.clip(args.gpu, 0, cp.cuda.runtime.getDeviceCount()-1)
-    cp.cuda.runtime.setDevice(gpu)
-    SELECTED_GPU_DEVICE = gpu
-if torch.cuda.is_available():
-    gpu = np.clip(args.gpu, 0, torch.cuda.device_count()-1)
-    SELECTED_GPU_DEVICE = gpu
 
