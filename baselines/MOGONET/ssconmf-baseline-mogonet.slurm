@@ -9,6 +9,10 @@
 #SBATCH --job-name=ariel
 #SBATCH --gres=gpu:2
 
+# Load the module
+module load cuda/cuda-12.2.2
+module load python/python-3.11.4-gcc-12.2.0
+
 
 # Path
 cd ~/Projects/SimilarSampleCrossOmicNMF/baselines/MOGONET/
