@@ -1,6 +1,6 @@
 import torch
 
-from model.contrast import Contrast
+from SimilarSampleCrossOmicNMF.baselines.MCRGCN.model.contrastX3 import Contrast
 from model.heco import HeCo
 from sklearn import metrics
 from sklearn import preprocessing

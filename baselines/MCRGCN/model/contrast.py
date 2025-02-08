@@ -3,9 +3,9 @@ import torch.nn as nn
 from method.clusters import  clusters
 
 
-class ContrastX3(nn.Module):
+class Contrast(nn.Module):
     def __init__(self, hidden_dim, tau, lam):
-        super(ContrastX3, self).__init__()
+        super(Contrast, self).__init__()
         self.proj = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.ELU(),
@@ -25,19 +25,21 @@ class ContrastX3(nn.Module):
         sim_matrix = torch.exp(dot_numerator / dot_denominator / self.tau)
         return sim_matrix
 
-    def forward(self, z_ge,z_mp, z_sc, pos):
+
+    def forward(self, z_ge, z_sc, pos):
         z_proj_ge = self.proj(z_ge)
-        z_proj_mp = self.proj(z_mp)
+        # z_proj_mp = self.proj(z_mp)
         z_proj_sc = self.proj(z_sc)
+
         # pos1=clusters(z_proj_mp)
         # pos2=clusters(z_proj_sc)
-        matrix_mp2sc1 = self.sim(z_proj_ge, z_proj_mp)
-        matrix_sc2mp1= matrix_mp2sc1.t()
-        matrix_mp2sc1 = matrix_mp2sc1/(torch.sum(matrix_mp2sc1, dim=1).view(-1, 1) + 1e-8)
-        lori_mp1 = -torch.log(matrix_mp2sc1.mul(pos).sum(dim=-1)).mean()
-        matrix_sc2mp1 = matrix_sc2mp1 / (torch.sum(matrix_sc2mp1, dim=1).view(-1, 1) + 1e-8)
-        lori_sc1 = -torch.log(matrix_sc2mp1.mul(pos).sum(dim=-1)).mean()
-        loss1=self.lam * lori_mp1 + (1 - self.lam) * lori_sc1
+        # matrix_mp2sc1 = self.sim(z_proj_ge, z_proj_mp)
+        # matrix_sc2mp1= matrix_mp2sc1.t()
+        # matrix_mp2sc1 = matrix_mp2sc1/(torch.sum(matrix_mp2sc1, dim=1).view(-1, 1) + 1e-8)
+        # lori_mp1 = -torch.log(matrix_mp2sc1.mul(pos).sum(dim=-1)).mean()
+        # matrix_sc2mp1 = matrix_sc2mp1 / (torch.sum(matrix_sc2mp1, dim=1).view(-1, 1) + 1e-8)
+        # lori_sc1 = -torch.log(matrix_sc2mp1.mul(pos).sum(dim=-1)).mean()
+        # loss1=self.lam * lori_mp1 + (1 - self.lam) * lori_sc1
 
         matrix_mp2sc2 = self.sim(z_proj_ge, z_proj_sc)
         matrix_sc2mp2 = matrix_mp2sc2.t()
@@ -54,5 +56,5 @@ class ContrastX3(nn.Module):
         # matrix_sc2mp3 = matrix_sc2mp3 / (torch.sum(matrix_sc2mp3, dim=1).view(-1, 1) + 1e-8)
         # lori_sc3= -torch.log(matrix_sc2mp3.mul(pos).sum(dim=-1)).mean()
         # loss3 = self.lam * lori_mp3 + (1 - self.lam) * lori_sc3
-        loss=loss1+loss2
+        loss = loss2
         return loss

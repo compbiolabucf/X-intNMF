@@ -188,10 +188,10 @@ def custom___train_test(
 
     if(len(omic_layers) == 3): 
         model = HeCo(features1.shape[1], features2.shape[1], features3.shape[1], n_sample).to(device)
-        criterion=Contrast(128, 0.5, 0.5).to(device)
+        criterion=ContrastX3(128, 0.5, 0.5).to(device)
     else:
         model = HeCo(features1.shape[1], None, features3.shape[1], n_sample).to(device)
-        criterion=ContrastX3(128, 0.5, 0.5).to(device)
+        criterion=Contrast(128, 0.5, 0.5).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=5e-4)
 

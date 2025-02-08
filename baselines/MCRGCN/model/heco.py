@@ -3,7 +3,6 @@ import torch
 from model.Methy_model import MethyGCN
 from model.Mirna_model import MirnaGCN
 from model.Gene_model import GeneGCN
-from model.contrast import Contrast
 import torch.nn.functional as fun
 
 import numpy as np
@@ -45,8 +44,10 @@ class HeCo(nn.Module):
         z_sc = fun.silu(z_sc)
         z_sc = self.LP4(z_sc)
 
-
-        return z_ge, z_sc
+        if self.methyl_activated:
+            return z_ge, z_mp, z_sc
+        else:
+            return z_ge, z_sc
 
     def get_embeds(self, data1, data2, data3):
         z_ge = self.ge(data1)

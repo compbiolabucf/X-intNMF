@@ -76,8 +76,8 @@ if __name__ == "__main__":
 
 
 
-    run_name = 'baseline_MCRGCN' if args.run_mode != "test" else randomize_run_name()
-    logging.info(f"Starting MCRGCN evaluation on {args.run_mode} mode, storage mode {args.storage_mode}")
+    run_name = 'baseline_MCRGCN' if args.disease != "test" else randomize_run_name()
+    logging.info(f"Starting MCRGCN evaluation on {args.disease} mode, storage mode {args.storage_mode}")
     # -----------------------------------------------------------------------------------------------
     # MongoDB
     # -----------------------------------------------------------------------------------------------
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     miRNA = pd.read_parquet(f"{DATA_PATH}/miRNA.parquet", storage_options=storage_options)
     mRNA = pd.read_parquet(f"{DATA_PATH}/mRNA.parquet", storage_options=storage_options)
     if args.omics_mode == "3omics": methDNA = pd.read_parquet(f'{DATA_PATH}/methDNA.parquet', storage_options=storage_options)
-
+    logging.fatal(TARG_PATH)
     target_folders = [f's3://{a}' for a in s3.ls(TARG_PATH)] if s3 is not None else os.listdir(TARG_PATH)
 
 
@@ -192,7 +192,7 @@ if __name__ == "__main__":
             sequential_result = parallel_train_test_one_target(
                 omic_layers=[mRNA.to_dict(orient='index'), miRNA.to_dict(orient='index')] + ([methDNA.to_dict(orient='index')] if args.omics_mode == "3omics" else []),
                 omic_sims=[mRNA_sim, miRNA_sim] + ([methDNA_sim] if args.omics_mode == "3omics" else []),
-                test_data=test_data.to_dict(orient='index'),
+                testdata=test_data.to_dict(orient='index'),
                 armed_gpu=armed_gpu,
                 target_id=target_id,
                 result_queue=None,
