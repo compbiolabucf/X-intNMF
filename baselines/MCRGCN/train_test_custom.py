@@ -23,6 +23,7 @@
 
 
 from model.contrast import Contrast
+from model.contrastX3 import ContrastX3
 from model.heco import HeCo
 from sklearn.metrics import roc_curve, auc
 from sklearn import preprocessing
@@ -142,22 +143,25 @@ def custom___train_test(
     device,
 ):
     n_sample = omic_layers[0].shape[0]
-
     labels = torch.LongTensor(label_data_series.values).to(device)
-    features1 = torch.FloatTensor(omic_layers[0].values).to(device)
-    # features2 = torch.FloatTensor(omic_layers[1].values).to(device)
-    features3 = torch.FloatTensor(omic_layers[1].values).to(device)
 
+
+    features1 = torch.FloatTensor(omic_layers[0].values).to(device)
     edge_gene_index = torch.LongTensor(sim_data[0]).t().contiguous().to(device)
-    # edge_mirna1_index = torch.LongTensor(sim_data[1]).t().contiguous().to(device)
-    edge_mirna2_index = torch.LongTensor(sim_data[1]).t().contiguous().to(device)
+    cora1 = Data(x=features1, edge_index=edge_gene_index, y=labels)
+
+    if len(omic_layers) == 3:
+        features2 = torch.FloatTensor(omic_layers[2].values).to(device)
+        edge_methyl_index = torch.LongTensor(sim_data[2]).t().contiguous().to(device)
+        cora2 = Data(x=features2, edge_index=edge_methyl_index, y=labels)
+
+    features3 = torch.FloatTensor(omic_layers[1].values).to(device)
+    edge_mirna_index = torch.LongTensor(sim_data[1]).t().contiguous().to(device)
+    cora3 = Data(x=features3, edge_index=edge_mirna_index, y=labels)
 
     # logging.fatal(f'tensor_mRNA: {features1.shape}')
     # logging.fatal(f'tensor_miRNA: {features2.shape}')
 
-    cora1 = Data(x=features1, edge_index=edge_gene_index, y=labels)
-    # cora2 = Data(x=features2, edge_index=edge_mirna1_index, y=labels)
-    cora3 = Data(x=features3, edge_index=edge_mirna2_index, y=labels)
     train_mask = tr_sample_list
     test_mask = te_sample_list
     
@@ -179,19 +183,32 @@ def custom___train_test(
 
 
     logging.info(f'[PROCESS {str(device).split(":")[-1]}] features1.shape[1]: {features1.shape[1]}')
-    # logging.info(f'[PROCESS {str(device).split(":")[-1]}] features2.shape[1]: {features2.shape[1]}')
+    if(len(omic_layers) == 3): logging.info(f'[PROCESS {str(device).split(":")[-1]}] features2.shape[1]: {features2.shape[1]}')
     logging.info(f'[PROCESS {str(device).split(":")[-1]}] features3.shape[1]: {features3.shape[1]}')
-    model = HeCo(features1.shape[1], features3.shape[1], n_sample).to(device)
 
-
+    if(len(omic_layers) == 3): 
+        model = HeCo(features1.shape[1], features2.shape[1], features3.shape[1], n_sample).to(device)
+        criterion=Contrast(128, 0.5, 0.5).to(device)
+    else:
+        model = HeCo(features1.shape[1], None, features3.shape[1], n_sample).to(device)
+        criterion=ContrastX3(128, 0.5, 0.5).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=5e-4)
-    criterion=Contrast(128, 0.5, 0.5).to(device)
+
+
+
     for epoch in range(120):
         model.train()
         optimizer.zero_grad()
-        z_ge, z_sc = model(cora1,cora3)
-        loss = criterion(z_ge[train_mask], z_sc[train_mask], pos)
+
+        if len(omic_layers) == 3:
+            z_ge, z_mp, z_sc = model(cora1,cora2,cora3)
+            loss = criterion(z_ge[train_mask], z_mp[train_mask], z_sc[train_mask], pos)
+        else:
+            z_ge, z_sc = model(cora1,None,cora3)
+            loss = criterion(z_ge[train_mask], z_sc[train_mask], pos)
+        
+        
         # revise - change: loss -> loss.item()
         logging.info(f'[PROCESS {str(device).split(":")[-1]}] epoch: {epoch} loss: {loss.item():.4f}')
         loss.backward()
@@ -199,7 +216,8 @@ def custom___train_test(
 
 
     model.eval()
-    embeds = model.get_embeds(cora1, cora3)
+    if len(omic_layers) == 3: embeds = model.get_embeds(cora1, cora2, cora3)
+    else: embeds = model.get_embeds(cora1, None, cora3)
 
 
     embeds_train  = embeds[train_mask]

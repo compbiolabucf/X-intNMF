@@ -87,8 +87,8 @@ if __name__ == "__main__":
         username='bu1th4nh',
         password='ariel.anna.elsa',
     )
-    mongo_db = mongo['SimilarSampleCrossOmicNMF']
-    collection = mongo_db[str(args.run_mode).upper()]
+    mongo_db = mongo[mongo_db_name]
+    collection = mongo_db[mongo_db_name]
 
 
 
@@ -118,6 +118,8 @@ if __name__ == "__main__":
     # -----------------------------------------------------------------------------------------------
     miRNA = pd.read_parquet(f"{DATA_PATH}/miRNA.parquet", storage_options=storage_options)
     mRNA = pd.read_parquet(f"{DATA_PATH}/mRNA.parquet", storage_options=storage_options)
+    if args.omics_mode == "3omics": methDNA = pd.read_parquet(f'{DATA_PATH}/methDNA.parquet', storage_options=storage_options)
+
     target_folders = [f's3://{a}' for a in s3.ls(TARG_PATH)] if s3 is not None else os.listdir(TARG_PATH)
 
 
@@ -125,11 +127,14 @@ if __name__ == "__main__":
     # -----------------------------------------------------------------------------------------------
     # Configuration: Sample Sim.matrix
     # -----------------------------------------------------------------------------------------------
-    mRNA_sim = build_edge_list(mRNA.T, 0.35)
+    mRNA_sim = build_edge_list(mRNA.T, 0.41)
     miRNA_sim = build_edge_list(miRNA.T, 0.42)
     mRNA_sim = mRNA_sim[['id_x', 'id_y']].values
     miRNA_sim = miRNA_sim[['id_x', 'id_y']].values
         
+    if args.omics_mode == "3omics": 
+        methDNA_sim = build_edge_list(methDNA.T, 0.35)
+        methDNA_sim = methDNA_sim[['id_x', 'id_y']].values
 
     # -----------------------------------------------------------------------------------------------
     # Run ID Retrieval
@@ -171,8 +176,8 @@ if __name__ == "__main__":
             process = mp.Process(
                 target = parallel_train_test_one_target,
                 args = (
-                    [mRNA.to_dict(orient='index'), miRNA.to_dict(orient='index')],
-                    [mRNA_sim, miRNA_sim],
+                    [mRNA.to_dict(orient='index'), miRNA.to_dict(orient='index')] + ([methDNA.to_dict(orient='index')] if args.omics_mode == "3omics" else []),
+                    [mRNA_sim, miRNA_sim] + ([methDNA_sim] if args.omics_mode == "3omics" else []),
                     test_data.to_dict(orient='index'),
                     armed_gpu,
                     target_id,
@@ -185,8 +190,8 @@ if __name__ == "__main__":
             processes.append(process)
         else:
             sequential_result = parallel_train_test_one_target(
-                omic_layers=[mRNA.to_dict(orient='index'), miRNA.to_dict(orient='index')],
-                omic_sims=[mRNA_sim, miRNA_sim],
+                omic_layers=[mRNA.to_dict(orient='index'), miRNA.to_dict(orient='index')] + ([methDNA.to_dict(orient='index')] if args.omics_mode == "3omics" else []),
+                omic_sims=[mRNA_sim, miRNA_sim] + ([methDNA_sim] if args.omics_mode == "3omics" else []),
                 test_data=test_data.to_dict(orient='index'),
                 armed_gpu=armed_gpu,
                 target_id=target_id,

@@ -8,21 +8,20 @@
 
 
 # -----------------------------------------------------------------------------------------------
-# Author: Bùi Tiến Thành - Tien-Thanh Bui (@bu1th4nh)
+# Author: Bùi Tiến Thành (@bu1th4nh)
 # Title: env_config.py
-# Date: 2024/12/10 12:48:18
+# Date: 2024/10/19 16:23:28
 # Description: 
 # 
-# (c) 2024 bu1th4nh. All rights reserved. 
-# Written with dedication in the University of Central Florida, EPCOT and the Magic Kingdom.
+# (c) bu1th4nh. All rights reserved
 # -----------------------------------------------------------------------------------------------
 
 
-
-
+import cupy as cp
 import numpy as np
 import pandas as pd
 import argparse
+import torch
 import s3fs
 
 
@@ -39,8 +38,10 @@ pickup_leftoff_mode = True
 # Args
 # -----------------------------------------------------------------------------------------------
 parser = argparse.ArgumentParser()
-parser.add_argument("--run_mode", type=str, required=True)
 parser.add_argument("--storage_mode", type=str, required=True)
+parser.add_argument("--run_mode", type=str, required=True)
+parser.add_argument("--omics_mode", type=str, required=True)
+parser.add_argument("--disease", type=str, required=True)
 parser.add_argument("--gpu", type=int, required=False, default=0)
 parser.add_argument("--parallel", type=bool, required=False, default=False)
 args = parser.parse_args()
@@ -50,18 +51,19 @@ args = parser.parse_args()
 # -----------------------------------------------------------------------------------------------
 # Config
 # -----------------------------------------------------------------------------------------------
+# Storage
 if args.storage_mode == "local":
-    DATA_PATH = '/home/ti514716/Datasets'
-    RESULT_PRE_PATH = '/home/ti514716/Results/SimilarSampleCrossOmicNMF/'
+    base_data_path = '/home/ti514716/Datasets'
+    base_result_path = '/home/ti514716/Results'
     storage_options = None
     s3 = None
 elif args.storage_mode == "s3":
-    DATA_PATH = 's3://datasets'
-    RESULT_PRE_PATH = 's3://results/SimilarSampleCrossOmicNMF/'
+    base_data_path = 's3://datasets'
+    base_result_path = 's3://results'
     storage_options = {
         'key': 'bu1th4nh',
         'secret': 'ariel.anna.elsa',
-        'endpoint_url': 'http://localhost:19000',
+        'endpoint_url': 'http://localhost:9000',
     }
     s3 = s3fs.S3FileSystem(
         key=storage_options['key'],
@@ -70,32 +72,73 @@ elif args.storage_mode == "s3":
         use_ssl=False,
     )
 else: raise ValueError("Invalid storage mode")
-    
 
 
-if args.run_mode == "luad":
-    experiment_name = 'SimilarSampleCrossOmicNMFv3_LUAD'
-    base_path = f'{DATA_PATH}/LungCancer'
-    DATA_PATH = f'{base_path}/processed'
-    TARG_PATH = f'{base_path}/clinical_testdata'
-    RESULT_PRE_PATH += 'luad'
-elif args.run_mode == "ov":
-    experiment_name = 'SimilarSampleCrossOmicNMFv3_OV'
-    base_path = f'{DATA_PATH}/OvarianCancer'
-    DATA_PATH = f'{base_path}/processed'
-    TARG_PATH = f'{base_path}/clinical_testdata'
-    RESULT_PRE_PATH += 'ov'
-elif args.run_mode == "brca":
-    experiment_name = 'SimilarSampleCrossOmicNMFv3'
-    base_path = f'{DATA_PATH}/BreastCancer'
-    DATA_PATH = f'{base_path}/processed_crossOmics'
-    TARG_PATH = f'{base_path}/clinical_testdata'
-    RESULT_PRE_PATH += 'brca'
-elif args.run_mode == "test":
-    experiment_name = 'test_experiment'
-    base_path = f'{DATA_PATH}/BreastCancer'
-    DATA_PATH = f'{base_path}/processed_crossOmics_micro'
-    TARG_PATH = f'{base_path}/clinical_testdata'
-    RESULT_PRE_PATH += 'brca'
-else: raise ValueError("Invalid run mode")
+# Omics
+if args.omics_mode == "3omics":
+    mongo_db_name           = 'SimilarSampleCrossOmicNMF_3Omics'
+    base_result_path        = f'{base_result_path}/SimilarSampleCrossOmicNMF_3Omics'
+    omic_folder             = 'processed_3_omics_mRNA_miRNA_methDNA'
+    cls_target_folder       = 'survival_testdata_3_omics_mRNA_miRNA_methDNA'
+    surv_target_folder      = 'survival_testdata_3_omics_mRNA_miRNA_methDNA'
+    experiment_addon_ext    = '_3Omics'
+elif args.omics_mode == "2omics":
+    mongo_db_name           = 'SimilarSampleCrossOmicNMF'
+    base_result_path        = f'{base_result_path}/SimilarSampleCrossOmicNMF'
+    omic_folder             = 'processed_2_omics_mRNA_miRNA'
+    cls_target_folder       = 'clinical_testdata_2_omics_mRNA_miRNA'
+    surv_target_folder      = 'survival_testdata_2_omics_mRNA_miRNA'
+    experiment_addon_ext    = ''
+
+
+# Disease
+if args.disease == "brca":
+    dataset_id              = 'BRCA'
+    mongo_db_name        = 'BRCA'
+    disease_data_folder     = 'BreastCancer'
+    disease_result_folder   = 'brca'
+    experiment_name         = f'SimilarSampleCrossOmicNMFv3_BRCA{experiment_addon_ext}'
+elif args.disease == "luad":
+    dataset_id              = 'LUAD'
+    mongo_collection        = 'LUAD'
+    disease_data_folder     = 'LungCancer'
+    disease_result_folder   = 'luad'
+    experiment_name         = f'SimilarSampleCrossOmicNMFv3_LUAD{experiment_addon_ext}'
+elif args.disease == "ov":
+    dataset_id              = 'OV'
+    mongo_collection        = 'OV'
+    disease_data_folder     = 'OvarianCancer'
+    disease_result_folder   = 'ov'
+    experiment_name         = f'SimilarSampleCrossOmicNMFv3_OV{experiment_addon_ext}'
+elif args.disease == "test":
+    dataset_id              = 'test'
+    mongo_collection        = 'TEST'
+    disease_data_folder     = 'BreastCancer'
+    disease_result_folder   = 'test'
+    experiment_name         = 'test_experiment'
+
+
+
+
+
+
+# Aggregate
+TARG_PATH = f'{base_data_path}/{disease_data_folder}/{cls_target_folder}'
+RUN_CFG_PATH = f'{base_result_path}/{disease_result_folder}'
+DATA_PATH = f'{base_data_path}/{disease_data_folder}/{omic_folder}'
+RESULT_PRE_PATH = f'{base_result_path}/{disease_result_folder}'
+
+
+
+
+
+# GPU
+SELECTED_GPU_DEVICE = None
+if cp.cuda.is_available():
+    gpu = np.clip(args.gpu, 0, cp.cuda.runtime.getDeviceCount()-1)
+    cp.cuda.runtime.setDevice(gpu)
+    SELECTED_GPU_DEVICE = gpu
+if torch.cuda.is_available():
+    gpu = np.clip(args.gpu, 0, torch.cuda.device_count()-1)
+    SELECTED_GPU_DEVICE = gpu
 

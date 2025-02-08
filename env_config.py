@@ -137,67 +137,7 @@ DATA_PATH = f'{base_data_path}/{disease_data_folder}/{omic_folder}'
 RESULT_PRE_PATH = f'{base_result_path}/{disease_result_folder}'
 
 
-# # Run mode
-# if args.run_mode == "test":
-#     experiment_name  = 'test_experiment'
-#     mongo_db_name    = 'SimilarSampleCrossOmicNMFv3_3Omics'
-#     mongo_collection = 'test'
-#     dataset_id       = 'test'
-#     DATA_PATH        = f'{base_data_path}/BreastCancer/processed_micro'
-#     TARG_PATH        = f'{base_data_path}/BreastCancer/processed_micro'
-#     RESULT_PRE_PATH  = f'{base_result_path}/test'
-# elif args.run_mode == "brca":
-#     experiment_name  = 'SimilarSampleCrossOmicNMFv3_BRCA_3Omics'
-#     mongo_db_name    = 'SimilarSampleCrossOmicNMF_3Omics'
-#     mongo_collection = 'BRCA'
-#     dataset_id       = 'BRCA'
-#     DATA_PATH        = f'{base_data_path}/BreastCancer/processed_3_omics_mRNA_miRNA_methDNA'
-#     TARG_PATH        = f'{base_data_path}/BreastCancer/clinical_testdata_3_omics_mRNA_miRNA_methDNA'
-#     RESULT_PRE_PATH  = f'{base_result_path}/brca'
-# elif args.run_mode == "luad":
-#     experiment_name  = 'SimilarSampleCrossOmicNMFv3_LUAD_3Omics'
-#     mongo_db_name    = 'SimilarSampleCrossOmicNMF_3Omics'
-#     mongo_collection = 'LUAD'
-#     dataset_id       = 'LUAD'
-#     DATA_PATH        = f'{base_data_path}/LungCancer/processed_3_omics_mRNA_miRNA_methDNA'
-#     TARG_PATH        = f'{base_data_path}/LungCancer/clinical_testdata_3_omics_mRNA_miRNA_methDNA'
-#     RESULT_PRE_PATH  = f'{base_result_path}/luad'
-# elif args.run_mode == "ov":
-#     experiment_name  = 'SimilarSampleCrossOmicNMFv3_OV_3Omics'
-#     mongo_db_name    = 'SimilarSampleCrossOmicNMF_3Omics'
-#     mongo_collection = 'OV'
-#     dataset_id       = 'OV'
-#     DATA_PATH        = f'{base_data_path}/OvarianCancer/processed_3_omics_mRNA_miRNA_methDNA'
-#     TARG_PATH        = f'{base_data_path}/OvarianCancer/clinical_testdata_3_omics_mRNA_miRNA_methDNA'
-#     RESULT_PRE_PATH  = f'{base_result_path}/ov'
-# elif args.run_mode == "hparams_opts_brca":
-#     experiment_name  = 'SimilarSampleCrossOmicNMFv3_BRCA_3Omics'
-#     mongo_db_name    = 'SimilarSampleCrossOmicNMF_3Omics'
-#     mongo_collection = 'HPARAMS_OPTS'
-#     dataset_id       = 'BRCA'
-#     DATA_PATH        = f'{base_data_path}/BreastCancer/processed_3_omics_mRNA_miRNA_methDNA'
-#     TARG_PATH        = f'{base_data_path}/BreastCancer/clinical_testdata_3_omics_mRNA_miRNA_methDNA'
-#     RUN_CFG_PATH     = f'{base_result_path}/brca'
-# elif args.run_mode == "hparams_opts_luad":
-#     experiment_name  = 'SimilarSampleCrossOmicNMFv3_LUAD_3Omics'
-#     mongo_db_name    = 'SimilarSampleCrossOmicNMF_3Omics'
-#     mongo_collection = 'HPARAMS_OPTS'
-#     dataset_id       = 'LUAD'
-#     DATA_PATH        = f'{base_data_path}/LungCancer/processed_3_omics_mRNA_miRNA_methDNA'
-#     TARG_PATH        = f'{base_data_path}/LungCancer/clinical_testdata_3_omics_mRNA_miRNA_methDNA'
-#     RUN_CFG_PATH     = f'{base_result_path}/luad'
-# elif args.run_mode == "hparams_opts_ov":
-#     experiment_name  = 'SimilarSampleCrossOmicNMFv3_OV_3Omics'
-#     mongo_db_name    = 'SimilarSampleCrossOmicNMF_3Omics'
-#     mongo_collection = 'HPARAMS_OPTS'
-#     dataset_id       = 'OV'
-#     DATA_PATH        = f'{base_data_path}/OvarianCancer/processed_3_omics_mRNA_miRNA_methDNA'
-#     TARG_PATH        = f'{base_data_path}/OvarianCancer/clinical_testdata_3_omics_mRNA_miRNA_methDNA'
-#     RUN_CFG_PATH     = f'{base_result_path}/ov'
-# else: raise ValueError("Invalid run mode")
 
-
-    
 
 
 # GPU

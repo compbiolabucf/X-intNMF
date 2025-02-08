@@ -11,30 +11,33 @@ from torch_geometric.data import Data
 
 
 class HeCo(nn.Module):
-    def __init__(self, num_feature1, num_feature3, n_sample):
+    methyl_activated = False
+
+    def __init__(self, num_feature1, num_feature2, num_feature3, n_sample):
         super(HeCo, self).__init__()
-        # self.LP1 = torch.nn.Linear(num_feature1, 512)
-        # self.LP2 = torch.nn.Linear(num_feature2, 512)
         self.ge = GeneGCN(num_feature1, n_sample)
-        # self.mp = MethyGCN(num_feature2)
         self.sc = MirnaGCN(num_feature3, n_sample)
+
+        if num_feature2 is not None:
+            self.mp = MethyGCN(num_feature2, n_sample)
+            self.methyl_activated = True
 
         self.LP3 = torch.nn.Linear(128, 256)
         self.LP4 = torch.nn.Linear(256, 128)
         
 
-    def forward(self, data1, data3):  # p a s
+    def forward(self, data1, data2, data3):  # p a s
         z_ge = self.ge(data1)
         z_ge = self.LP3(z_ge)
         z_ge = fun.silu(z_ge)
         z_ge = self.LP4(z_ge)
 
 
-
-        # z_mp = self.mp(data2)
-        # z_mp = self.LP3(z_mp)
-        # z_mp = fun.silu(z_mp)
-        # z_mp = self.LP4(z_mp)
+        if self.methyl_activated:
+            z_mp = self.mp(data2)
+            z_mp = self.LP3(z_mp)
+            z_mp = fun.silu(z_mp)
+            z_mp = self.LP4(z_mp)
 
 
         z_sc = self.sc(data3)
@@ -45,17 +48,18 @@ class HeCo(nn.Module):
 
         return z_ge, z_sc
 
-    def get_embeds(self, data1, data3):
+    def get_embeds(self, data1, data2, data3):
         z_ge = self.ge(data1)
         z_ge = self.LP3(z_ge)
         z_ge = fun.silu(z_ge)
         z_ge = self.LP4(z_ge)
 
 
-        # z_mp = self.mp(data2)
-        # z_mp = self.LP3(z_mp)
-        # z_mp = fun.silu(z_mp)
-        # z_mp = self.LP4(z_mp)
+        if self.methyl_activated:
+            z_mp = self.mp(data2)
+            z_mp = self.LP3(z_mp)
+            z_mp = fun.silu(z_mp)
+            z_mp = self.LP4(z_mp)
 
 
 
@@ -65,11 +69,9 @@ class HeCo(nn.Module):
         z_sc = self.LP4(z_sc)
 
 
-        z=z_ge + z_sc
-        # z_ge = z_ge.cuda().data.cpu().numpy()
-        # z_mp= z_mp.cuda().data.cpu().numpy()
-        # z_sc = z_sc.cuda().data.cpu().numpy()
-        # z=np.concatenate([z_ge,z_mp,z_sc],axis=1)
+        if self.methyl_activated: z = z_ge + z_sc + z_mp
+        else: z = z_ge + z_sc
+        
         return z_ge.detach()
 
     # z_ge.detach()

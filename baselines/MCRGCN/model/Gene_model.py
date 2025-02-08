@@ -7,7 +7,6 @@ from torch_geometric.nn.conv import MessagePassing
 
 
 
-
 class GeneGCN(torch.nn.Module, ABC):
     def __init__(self, num_feature, n_sample):
         super(GeneGCN, self).__init__()

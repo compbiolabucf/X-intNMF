@@ -128,13 +128,13 @@ mongo = pymongo.MongoClient(
     username='bu1th4nh',
     password='ariel.anna.elsa',
 )
-mongo_db = mongo['SimilarSampleCrossOmicNMF']
+mongo_db = mongo['SimilarSampleCrossOmicNMF_3Omics']
 
 
 configs = [
-    ('BreastCancer/processed_crossOmics', 'BreastCancer', 'brca', 'BRCA', 'SimilarSampleCrossOmicNMFv3'),
-    ('LungCancer/processed', 'LungCancer', 'luad', 'LUAD', 'SimilarSampleCrossOmicNMFv3_LUAD'),
-    ('OvarianCancer/processed', 'OvarianCancer', 'ov', 'OV', 'SimilarSampleCrossOmicNMFv3_OV'),
+    ('BreastCancer/processed_3_omics_mRNA_miRNA_methDNA', 'BreastCancer', 'brca', 'BRCA', 'SimilarSampleCrossOmicNMFv3_BRCA_3Omics'),
+    ('LungCancer/processed_3_omics_mRNA_miRNA_methDNA', 'LungCancer', 'luad', 'LUAD', 'SimilarSampleCrossOmicNMFv3_LUAD_3Omics'),
+    ('OvarianCancer/processed_3_omics_mRNA_miRNA_methDNA', 'OvarianCancer', 'ov', 'OV', 'SimilarSampleCrossOmicNMFv3_OV_3Omics'),
 ]
 mofa_latent_dims = 15
 
@@ -142,11 +142,11 @@ def find_run(collection, run_id: str, target_id: str): return collection.find_on
 
 for ds_name, general_data_name, res_folder, mongo_collection, mlf_experiment_name in configs:
     DATA_PATH = f's3://datasets/{ds_name}'
-    DATA_PATH = f's3://datasets/{ds_name}'
-    TARG_PATH = f's3://datasets/{general_data_name}/clinical_testdata'
-    DR_RES_PATH = f's3://results/SimilarSampleCrossOmicNMF/{res_folder}/baseline_MOFA2'
+    TARG_PATH = f's3://datasets/{general_data_name}/survival_testdata_3_omics_mRNA_miRNA_methDNA'
+    DR_RES_PATH = f's3://results/SimilarSampleCrossOmicNMF_3Omics/{res_folder}/baseline_MOFA2'
     miRNA = pd.read_parquet(f"{DATA_PATH}/miRNA.parquet", storage_options=storage_option)
     mRNA = pd.read_parquet(f"{DATA_PATH}/mRNA.parquet", storage_options=storage_option)
+    methDNA = pd.read_parquet(f'{DATA_PATH}/methDNA.parquet', storage_options=storage_option)
 
     mlflow.set_experiment(mlf_experiment_name)
     collection = mongo_db[mongo_collection]
@@ -159,15 +159,18 @@ for ds_name, general_data_name, res_folder, mongo_collection, mlf_experiment_nam
     print("mRNA")
     print(f"Sample size: {mRNA.shape[1]}")
     print(f"Feature size: {mRNA.shape[0]}")
+    print("methDNA")
+    print(f"Sample size: {methDNA.shape[1]}")
+    print(f"Feature size: {methDNA.shape[0]}")
 
-    data_mat = [[miRNA.T.values], [mRNA.T.values]]
+    data_mat = [[miRNA.T.values], [mRNA.T.values], [methDNA.T.values]]
 
     Ariel = entry_point()
     Ariel.set_data_matrix(
         data_mat, 
-        likelihoods=['gaussian', 'gaussian'], 
-        views_names=['miRNA', 'mRNA'],
-        features_names=[miRNA.index, mRNA.index],
+        likelihoods=['gaussian', 'gaussian', 'gaussian'], 
+        views_names=['miRNA', 'mRNA', 'methDNA'],
+        features_names=[miRNA.index, mRNA.index, methDNA.index],
         samples_names=[miRNA.columns],
     )
 
