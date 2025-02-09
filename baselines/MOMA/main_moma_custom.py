@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
 
 
-    run_name = 'baseline_MOMA' if args.run_mode != "test" else randomize_run_name()
+    run_name = ('baseline_MOMA' + args.run_mode) if args.run_mode != "test" else randomize_run_name()
     logging.info(f"Starting MOMA evaluation on {args.run_mode} mode, storage mode {args.storage_mode}")
     # -----------------------------------------------------------------------------------------------
     # MongoDB
@@ -88,8 +88,8 @@ if __name__ == '__main__':
         username='bu1th4nh',
         password='ariel.anna.elsa',
     )
-    mongo_db = mongo['SimilarSampleCrossOmicNMF']
-    collection = mongo_db[str(args.run_mode).upper()]
+    mongo_db = mongo[mongo_db_name]
+    collection = mongo_db[mongo_collection]
 
 
 
@@ -117,8 +117,15 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------
     # Data
     # -----------------------------------------------------------------------------------------------
-    miRNA = pd.read_parquet(f"{DATA_PATH}/miRNA.parquet", storage_options=storage_options)
-    mRNA = pd.read_parquet(f"{DATA_PATH}/mRNA.parquet", storage_options=storage_options)
+    if args.run_mode == "mRNA_miRNA":
+        omics_1 = pd.read_parquet(f"{DATA_PATH}/mRNA.parquet", storage_options=storage_options)
+        omic_2 = pd.read_parquet(f"{DATA_PATH}/miRNA.parquet", storage_options=storage_options)
+    elif args.run_mode == "mRNA_methDNA":
+        omics_1 = pd.read_parquet(f"{DATA_PATH}/mRNA.parquet", storage_options=storage_options)
+        omic_2 = pd.read_parquet(f"{DATA_PATH}/methDNA.parquet", storage_options=storage_options)
+    elif args.run_mode == "miRNA_methDNA":
+        omics_1 = pd.read_parquet(f"{DATA_PATH}/miRNA.parquet", storage_options=storage_options)
+        omic_2 = pd.read_parquet(f"{DATA_PATH}/methDNA.parquet", storage_options=storage_options)
     target_folders = [f's3://{a}' for a in s3.ls(TARG_PATH)] if s3 is not None else os.listdir(TARG_PATH)
 
 
@@ -172,7 +179,7 @@ if __name__ == '__main__':
             process = mp.Process(
                 target = parallel_train_test_one_target,
                 args = (
-                    [mRNA.to_dict(orient='index'), miRNA.to_dict(orient='index')],
+                    [omics_1.to_dict(orient='index'), omic_2.to_dict(orient='index')],
                     test_data.to_dict(orient='index'),
                     target_id,
                     armed_gpu,
@@ -188,7 +195,7 @@ if __name__ == '__main__':
             processes.append(process)
         else:
             sequential_result = parallel_train_test_one_target(
-                omic_layers=[mRNA.to_dict(orient='index'), miRNA.to_dict(orient='index')],
+                omic_layers=[omics_1.to_dict(orient='index'), omic_2.to_dict(orient='index')],
                 testdata=test_data.to_dict(orient='index'),
                 target_name=target_id,
                 armed_gpu=armed_gpu,
@@ -235,8 +242,8 @@ if __name__ == '__main__':
                 f.write(run_id)
 
             mlflow.log_param("Number of omics layers", 2)
-            mlflow.log_param("Omics layers feature size", [mRNA.shape[0], miRNA.shape[0]])
-            mlflow.log_param("Sample size", miRNA.shape[1])
+            mlflow.log_param("Omics layers feature size", [omics_1.shape[0], omic_2.shape[0]])
+            mlflow.log_param("Sample size", omic_2.shape[1])
         logging.info(f"Run {run_id} initialized")
 
         for result in result_queue:

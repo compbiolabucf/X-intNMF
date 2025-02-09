@@ -41,6 +41,8 @@ parser.add_argument("--run_mode", type=str, required=True)
 parser.add_argument("--storage_mode", type=str, required=True)
 parser.add_argument("--gpu", type=int, required=False, default=0)
 parser.add_argument("--parallel", type=bool, required=False, default=False)
+parser.add_argument("--omics_mode", type=str, required=True)
+parser.add_argument("--disease", type=str, required=True)
 args = parser.parse_args()
 
 
@@ -60,7 +62,7 @@ elif args.storage_mode == "s3":
     storage_options = {
         'key': 'bu1th4nh',
         'secret': 'ariel.anna.elsa',
-        'endpoint_url': 'http://localhost:9000',
+        'endpoint_url': 'http://localhost:19000',
     }
     s3 = s3fs.S3FileSystem(
         key=storage_options['key'],
@@ -76,7 +78,7 @@ if args.omics_mode == "3omics":
     mongo_db_name           = 'SimilarSampleCrossOmicNMF_3Omics'
     base_result_path        = f'{base_result_path}/SimilarSampleCrossOmicNMF_3Omics'
     omic_folder             = 'processed_3_omics_mRNA_miRNA_methDNA'
-    cls_target_folder       = 'survival_testdata_3_omics_mRNA_miRNA_methDNA'
+    cls_target_folder       = 'clinical_testdata_3_omics_mRNA_miRNA_methDNA'
     surv_target_folder      = 'survival_testdata_3_omics_mRNA_miRNA_methDNA'
     experiment_addon_ext    = '_3Omics'
 elif args.omics_mode == "2omics":
@@ -116,6 +118,11 @@ elif args.disease == "test":
 
 
 
+# Run mode guard-rail
+if 'methDNA' in str(args.run_mode) and args.omics_mode == "2omics":
+    raise ValueError("Invalid run mode. Please use 3omics mode for methDNA")
+if 'methDNA' not in str(args.run_mode) and args.omics_mode == "3omics":
+    raise ValueError("Invalid run mode. Please use 2omics mode for mRNA-miRNA")
 
 
 

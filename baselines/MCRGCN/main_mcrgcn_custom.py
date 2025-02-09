@@ -88,7 +88,7 @@ if __name__ == "__main__":
         password='ariel.anna.elsa',
     )
     mongo_db = mongo[mongo_db_name]
-    collection = mongo_db[mongo_db_name]
+    collection = mongo_db[mongo_collection]
 
 
 
