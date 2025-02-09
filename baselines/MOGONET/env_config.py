@@ -61,7 +61,7 @@ elif args.storage_mode == "s3":
     storage_options = {
         'key': 'bu1th4nh',
         'secret': 'ariel.anna.elsa',
-        'endpoint_url': 'http://localhost:19000',
+        'endpoint_url': 'http://localhost:9000',
     }
     s3 = s3fs.S3FileSystem(
         key=storage_options['key'],
@@ -95,8 +95,7 @@ if args.disease == "brca":
     mongo_collection        = 'BRCA'
     disease_data_folder     = 'BreastCancer'
     disease_result_folder   = 'brca'
-    experiment_name         = 'test_experiment'
-    # experiment_name         = f'SimilarSampleCrossOmicNMFv3_BRCA{experiment_addon_ext}'
+    experiment_name         = f'SimilarSampleCrossOmicNMFv3_BRCA{experiment_addon_ext}'
 elif args.disease == "luad":
     dataset_id              = 'LUAD'
     mongo_collection        = 'LUAD'

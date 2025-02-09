@@ -89,7 +89,7 @@ if __name__ == '__main__':
         password='ariel.anna.elsa',
     )
     mongo_db = mongo[mongo_db_name]
-    collection = mongo_db[mongo_db_name]
+    collection = mongo_db[mongo_collection]
 
 
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------
     # MLFlow
     # -----------------------------------------------------------------------------------------------
-    mlflow.set_tracking_uri(uri="http://127.0.0.1:16969")
+    mlflow.set_tracking_uri(uri="http://127.0.0.1:6969")
     mlflow.set_experiment(experiment_name)
 
 
@@ -166,11 +166,11 @@ if __name__ == '__main__':
                 logging.info(f"Run {run_id} on dataset {target_id} already exists. Skipping")
                 continue
         test_data = pd.read_parquet(target_folder, storage_options=storage_options)
-        armed_gpu = (fol_id + 1) % torch.cuda.device_count()
 
 
         # Evaluate
         if args.parallel:
+            armed_gpu = (fol_id + 1) % torch.cuda.device_count()
             process = mp.Process(
                 target = custom___evaluate_one_target,
                 args = (
@@ -194,6 +194,7 @@ if __name__ == '__main__':
             process.start()
             processes.append(process)
         else:
+            armed_gpu = args.gpu
             sequential_result = custom___evaluate_one_target(
                 omic_layers=[mRNA.to_dict(orient='index'), miRNA.to_dict(orient='index')] if args.omics_mode != "3omics" else [mRNA.to_dict(orient='index'), miRNA.to_dict(orient='index'), methDNA.to_dict(orient='index')],
                 testdata=test_data.to_dict(orient='index'),
