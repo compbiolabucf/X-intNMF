@@ -63,7 +63,7 @@ elif args.storage_mode == "s3":
     storage_options = {
         'key': 'bu1th4nh',
         'secret': 'ariel.anna.elsa',
-        'endpoint_url': 'http://localhost:19000',
+        'endpoint_url': 'http://localhost:9000',
     }
     s3 = s3fs.S3FileSystem(
         key=storage_options['key'],
@@ -80,14 +80,14 @@ if args.omics_mode == "3omics":
     base_result_path        = f'{base_result_path}/SimilarSampleCrossOmicNMF_3Omics'
     omic_folder             = 'processed_3_omics_mRNA_miRNA_methDNA'
     cls_target_folder       = 'clinical_testdata_3_omics_mRNA_miRNA_methDNA'
-    surv_target_folder      = 'survival_testdata_3_omics_mRNA_miRNA_methDNA'
+    surv_target_folder      = 'survivalanalysis_testdata__3_omics_mRNA_miRNA_methDNA'
     experiment_addon_ext    = '_3Omics'
 elif args.omics_mode == "2omics":
     mongo_db_name           = 'SimilarSampleCrossOmicNMF'
     base_result_path        = f'{base_result_path}/SimilarSampleCrossOmicNMF'
     omic_folder             = 'processed_2_omics_mRNA_miRNA'
     cls_target_folder       = 'clinical_testdata_2_omics_mRNA_miRNA'
-    surv_target_folder      = 'survival_testdata_2_omics_mRNA_miRNA'
+    surv_target_folder      = 'survivalanalysis_testdata_2_omics_mRNA_miRNA'
     experiment_addon_ext    = ''
 
 
