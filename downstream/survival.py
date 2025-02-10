@@ -21,6 +21,7 @@
 import logging
 import numpy as np
 import pandas as pd
+import sksurv.metrics
 from tqdm import tqdm
 from typing import List, Dict, Any, Tuple, Union, Literal
 
@@ -81,9 +82,10 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
     # -----------------------------------------------------------------------------------------------
     # Coxnet with CV
     # -----------------------------------------------------------------------------------------------
-    coxnet_pipe = make_pipeline(StandardScaler(), CoxnetSurvivalAnalysis(l1_ratio=0.5, alpha_min_ratio=0.01, max_iter=100))
-    coxnet_pipe.fit(X_train, Y_train)
-    estimated_alphas = coxnet_pipe.named_steps["coxnetsurvivalanalysis"].alphas_
+    logging.info("Optimizing alpha using Coxnet with CV")
+    coxnet_hparams_opt_pipe = make_pipeline(StandardScaler(), CoxnetSurvivalAnalysis(l1_ratio=0.5, alpha_min_ratio=0.01, max_iter=100))
+    coxnet_hparams_opt_pipe.fit(X_train, Y_train)
+    estimated_alphas = coxnet_hparams_opt_pipe.named_steps["coxnetsurvivalanalysis"].alphas_
 
     # 5-fold CV to find optimal alpha
     cv = KFold(n_splits=5, shuffle=True, random_state=0)
@@ -94,10 +96,12 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
         error_score=0.5,
         n_jobs=3,
     ).fit(X_train, Y_train)
+
     # print(gcv.best_estimator_.named_steps['coxnetsurvivalanalysis'].alphas[0])
     alpha = gcv.best_estimator_.named_steps['coxnetsurvivalanalysis'].alphas[0]
 
     # Fit final model
+    logging.info(f"Fitting final model with alpha={alpha}")
     coxnet_pipe = make_pipeline(StandardScaler(), CoxnetSurvivalAnalysis(l1_ratio=0.5, alphas=[alpha]))
     coxnet_pipe.fit(X_train, Y_train)
 
@@ -105,6 +109,7 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
     # -----------------------------------------------------------------------------------------------
     # Prognostic index and low/hi risk group
     # -----------------------------------------------------------------------------------------------
+    logging.info("Getting prognostic index and low/hi risk group")
     # Get prognostic index
     Y_pred = pd.Series(
         coxnet_pipe.predict(X_test),
@@ -122,6 +127,7 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
     # -----------------------------------------------------------------------------------------------
     # Kaplan-Meier curve
     # -----------------------------------------------------------------------------------------------
+    logging.info("Getting Kaplan-Meier curve")
     high_risk_time_exit = test_surv_data.loc[high_risk_ids, duration_label].values
     high_risk_event_observed = test_surv_data.loc[high_risk_ids, event_label].values
     kmf_high = lifelines.KaplanMeierFitter()
@@ -182,7 +188,16 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
     # -----------------------------------------------------------------------------------------------
     # Integrated Brier score
     # -----------------------------------------------------------------------------------------------
-    Brier_score = np.nan
+    # logging.info("Calculating Integrated Brier Score")
+    # times = np.linspace(0, np.max(test_surv_data[duration_label]), 100)
+    # Y_test = test_surv_data.to_records(index=False)
+    # pred_surv = coxnet_pipe.named_steps['coxnetsurvivalanalysis'].predict_survival_function(X_test, fit_baseline_model=True)
+
+    # # Calculate survival probabilities at specified times
+    # pred_surv_at_times = np.asarray([[fn(t) for t in times] for fn in pred_surv])
+    # brier_score = sksurv.metrics.integrated_brier_score(Y_train, Y_test, pred_surv_at_times, times)
+
+
 
 
 
@@ -191,7 +206,30 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
     # -----------------------------------------------------------------------------------------------
     # C-index
     # -----------------------------------------------------------------------------------------------
-    c_index = np.nan
+    # logging.info("Calculating C-index")
+    # event_indicator = test_surv_data[event_label].values
+    # event_time = test_surv_data[duration_label].values
+    # c_index, _ = sksurv.metrics.concordance_index_censored(event_indicator, event_time, Y_pred)
+
+
+
+    # -----------------------------------------------------------------------------------------------
+    # Generalized AUC
+    # -----------------------------------------------------------------------------------------------
+    # logging.info("Calculating Generalized AUC")
+    # times = np.linspace(0, np.max(test_surv_data[duration_label]), 100)
+    # Y_test = test_surv_data.to_records(index=False)
+    # Y_train = train_surv_data.to_records(index=False)
+    # pred_risk = coxnet_pipe.predict(X_test)
+
+    # # Calculate AUC at different time points
+    # time_points, auc_values = cumulative_dynamic_auc(Y_train, Y_test, pred_risk, times)
+
+    # # Store the AUC values in the return dictionary
+    # generalized_auc = {
+    #     "time_points": list(time_points),
+    #     "auc_values": list(auc_values)
+    # }
 
 
 
@@ -216,7 +254,8 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
             "censor_low": list(censor_low),
             "censor_low_pred": list(censor_low_pred),
         },
-        "p_value": results.p_value,
-        "c_index": c_index,
-        "integrated_brier_score": Brier_score,
+        "p_value": float(results.p_value),
+        # "c_index": c_index,
+        # "integrated_brier_score": brier_score,
+        # "generalized_auc": generalized_auc,
     }

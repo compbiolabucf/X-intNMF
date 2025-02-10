@@ -18,6 +18,11 @@
 # -----------------------------------------------------------------------------------------------
 
 
+import os
+import warnings 
+warnings.filterwarnings("ignore") 
+os.environ["PYTHONWARNINGS"] = "ignore::UserWarning"
+
 import logging
 import numpy as np
 import pandas as pd
@@ -87,7 +92,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------
     # Obtain survival analysis targets
     # -----------------------------------------------------------------------------------------------
-    SA_TARG_PATH = f'{base_data_path}/{disease_data_folder}/{surv_target_folder}'
+    logging.info(f"Retrieving survival analysis targets from {SA_TARG_PATH}")
     surv_targets_data = {}
     surv_target_folder = [f's3://{a}' for a in s3.ls(SA_TARG_PATH)]
     for tar in tqdm(surv_target_folder, desc='Preloading target data'):
@@ -106,12 +111,14 @@ if __name__ == '__main__':
     # Evaluate
     # -----------------------------------------------------------------------------------------------
     # Get target id for each disease => find the best hparams for each target
+    logging.info(f"Acquiring classification target ids for {dataset_id} for config")
     classification_target_ids_for_disease = hparams_runs.find(
         {'dataset': dataset_id},
     ).distinct('target_id')
 
 
     # Get the best hparams for each target and run SA
+    logging.info(f"Acquiring classification target ids for {dataset_id} for config")
     for classification_target_id in classification_target_ids_for_disease:
         Ariel = (
             pd.DataFrame.from_records(
@@ -133,14 +140,12 @@ if __name__ == '__main__':
             .mean()
         )
         best_cfg = Ariel.index[np.argmax(Ariel.values)]
-        H = pd.read_parquet(f'{RESULT_PRE_PATH}/{best_cfg}/H.parquet', storage_options=storage_options)
+        H = pd.read_parquet(f'{RUN_CFG_PATH}/{best_cfg}/H.parquet', storage_options=storage_options)
 
 
         # Get all survival analysis targets
         for surv_target_id in surv_targets_data.keys():
             survival = surv_targets_data[surv_target_id]
-            train_sample_ids, test_sample_ids = train_test_split(survival.index, test_size=0.2)
-
             if surv_target_id == 'survival': 
                 event_label = 'Overall Survival Status'
                 time_label = 'Overall Survival (Months)'
@@ -153,6 +158,7 @@ if __name__ == '__main__':
                 attempt += 1
                 logging.info(f'SA for {dataset_id} with {classification_target_id}, config {best_cfg} and {surv_target_id}, attempt {attempt}')
 
+                train_sample_ids, test_sample_ids = train_test_split(list(survival.index), test_size=0.2)
                 try:
                     surv_result = surv_analysis(
                         H,
@@ -169,13 +175,15 @@ if __name__ == '__main__':
                         logging.info(surv_result)
                         break
                     else:
-                        logging.info('p-value > 0.05:', surv_result['p_value'])
+                        logging.info(f'p-value > 0.05: {surv_result["p_value"]}')
                 except Exception as e:
                     logging.error('Error occurred:', e)
                     continue
 
             
             # Save result
+            if surv_result is None:
+                continue
             surv_result['dataset_id'] = dataset_id
             surv_result['surv_target'] = surv_target_id
             surv_result['best_cfg_from'] = classification_target_id
