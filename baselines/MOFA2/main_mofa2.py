@@ -142,7 +142,7 @@ def find_run(collection, run_id: str, target_id: str): return collection.find_on
 
 for ds_name, general_data_name, res_folder, mongo_collection, mlf_experiment_name in configs:
     DATA_PATH = f's3://datasets/{ds_name}'
-    TARG_PATH = f's3://datasets/{general_data_name}/survival_testdata_3_omics_mRNA_miRNA_methDNA'
+    TARG_PATH = f's3://datasets/{general_data_name}/clinical_testdata_3_omics_mRNA_miRNA_methDNA'
     DR_RES_PATH = f's3://results/SimilarSampleCrossOmicNMF_3Omics/{res_folder}/baseline_MOFA2'
     miRNA = pd.read_parquet(f"{DATA_PATH}/miRNA.parquet", storage_options=storage_option)
     mRNA = pd.read_parquet(f"{DATA_PATH}/mRNA.parquet", storage_options=storage_option)
