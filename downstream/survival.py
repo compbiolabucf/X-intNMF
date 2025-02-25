@@ -94,7 +94,7 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
         param_grid={"coxnetsurvivalanalysis__alphas": [[v] for v in estimated_alphas]},
         cv=cv,
         error_score=0.5,
-        n_jobs=3,
+        n_jobs=16,
     ).fit(X_train, Y_train)
 
     # print(gcv.best_estimator_.named_steps['coxnetsurvivalanalysis'].alphas[0])

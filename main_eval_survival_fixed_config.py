@@ -28,6 +28,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from typing import List, Dict, Any, Tuple, Union, Literal
+from filelock import FileLock
 
 import pymongo
 from s3fs import S3FileSystem
@@ -83,7 +84,7 @@ if __name__ == '__main__':
         mRNA = pd.read_parquet(f'{DATA_PATH}/mRNA.parquet', storage_options=storage_options)
 
         features_list = [mRNA.index.to_list(), miRNA.index.to_list(), methDNA.index.to_list()]   
-        omics_data = [mRNA.to_numpy(np.float64, True), miRNA.to_numpy(np.float64, True), methDNA.to_numpy(np.float64, True)]
+        omics_data = [mRNA, miRNA, methDNA]
         
     elif args.omics_mode == "2omics":
 
@@ -92,7 +93,7 @@ if __name__ == '__main__':
         mRNA = pd.read_parquet(f'{DATA_PATH}/mRNA.parquet', storage_options=storage_options)
 
         features_list = [mRNA.index.to_list(), miRNA.index.to_list()]   
-        omics_data = [mRNA.to_numpy(np.float64, True), miRNA.to_numpy(np.float64, True)]
+        omics_data = [mRNA, miRNA]
 
 
 
@@ -185,39 +186,53 @@ if __name__ == '__main__':
                         event_label,
                         time_label,
                     )
-
-
-                    if surv_result['p_value'] < 0.05:
-                        logging.info(f'p-value < 0.05: {surv_result["p_value"]}')
-                        logging.info(f'Comparing with original data')
-
-
-                        # Compare with original data
-                        H_original_data = pd.concat(
-                            [x.loc[:, survival.index.tolist()] for x in omics_data],
-                            axis=0,
-                        )
-                        baseline = surv_analysis(
-                            H_original_data,
-                            train_sample_ids,
-                            survival.loc[train_sample_ids],
-                            test_sample_ids,
-                            survival.loc[test_sample_ids],
-                            event_label,
-                            time_label,
-                        )
-                        baseline.pop('train_sample_ids', default=None)
-                        baseline.pop('test_sample_ids', default=None)
-                        surv_result['baseline'] = baseline
-                        logging.info(f"Baseline: {baseline['p_value']}")
-
-
-                        break
-                    else:
-                        logging.info(f'p-value > 0.02: {surv_result["p_value"]}')
+                    # Save result
+                    if surv_result is None:
+                        continue
                 except Exception as e:
                     logging.error('Error occurred:', e)
                     continue
+
+                p_value_threshold = 0.01
+                if surv_result['p_value'] < p_value_threshold:
+                    logging.info(f'p-value < {p_value_threshold}: {surv_result["p_value"]}')
+                    logging.info(f'Comparing with original data')
+
+                    logging.info("Acquiring lock...")
+                    lock = FileLock("/tmp/SimilarSampleCrossOmicNMF.SurvivalAnal.lock")
+
+                    with lock:
+                        try:
+                            logging.warning("Acquired lock")
+
+
+                            # Compare with original data
+                            H_original_data = pd.concat(
+                                [x[survival.index.tolist()].copy(deep=True) for x in omics_data],
+                                axis=0,
+                            ).T
+                            baseline = surv_analysis(
+                                H_original_data,
+                                train_sample_ids,
+                                survival.loc[train_sample_ids],
+                                test_sample_ids,
+                                survival.loc[test_sample_ids],
+                                event_label,
+                                time_label,
+                            )
+                            baseline.pop('train_sample_ids', default=None)
+                            baseline.pop('test_sample_ids', default=None)
+                            surv_result['baseline'] = baseline
+                            logging.info(f"Baseline: {baseline['p_value']}")
+                            logging.info("Lock released")
+                        except Exception as e:
+                            logging.error('Error occurred when eval-ing baselines:', e)
+                            continue
+
+                    break
+                else:
+                    logging.info(f'p-value > {p_value_threshold}: {surv_result["p_value"]}')
+                
 
             
             # Save result
