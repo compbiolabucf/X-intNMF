@@ -161,6 +161,32 @@ with tab1:
                                 if metric.lower() in Belle.lower() and stat.lower() in Belle.lower():
                                     data_row[f"{metric} {stat}"] = Ariel[Belle]
                     finaldata.append(data_row)
+
+
+            ablation_data = mongo_db['ABLATION_STUDIES'].find(
+                {
+                    'dataset': dataset_choice,
+                    'target_id': target,
+                }
+            ).to_list()
+            for idx, ablation in enumerate(ablation_data):
+                if ablation['run_name'] == 'zero_alpha': ablation_data[idx]['run_name'] = 'X-intMF ($\\alpha$=0)'
+                if ablation['run_name'] == 'max_alpha': ablation_data[idx]['run_name'] = 'X-intMF ($\\alpha$=10000)'
+
+            for ablation in ablation_data:
+                data_row = {
+                    'Run Name': ablation['run_name'],
+                    'Classifier': ablation['classifier'],
+                }
+                for metric in metrics:
+                    for stat in statistics:
+                        keyword = f"{stat} {metric}"
+                        if keyword in ablation['summary'].keys():
+                            data_row[f"{metric} {stat}"] = ablation['summary'][keyword]
+                finaldata.append(data_row)
+
+            
+
             
             finaldata = pd.DataFrame(finaldata)
             finaldata.rename(columns={'index': 'test_id'}, inplace=True)
@@ -190,7 +216,8 @@ with tab1:
                 if agged_result.index.equals(data_to_agg.index):
                     for col in data_to_agg.columns:
                         agged_result[col] = data_to_agg[col]
-
+            
+            # st.dataframe(data_to_agg, use_container_width=True)
 
 
         st.markdown("## Aggregated Result")

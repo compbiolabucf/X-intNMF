@@ -56,32 +56,17 @@ if __name__ == '__main__':
         password='ariel.anna.elsa',
     )
     mongo_db = mongo[mongo_db_name]
-    eval_collection = mongo_db[mongo_collection]
-    hparams_runs = mongo_db['HPARAMS_OPTS']
+    result_collection = mongo_db[mongo_collection]
+    ablation_results = mongo_db['ABLATION_STUDIES']
 
 
-    def find_run(run_id: str, target_id: str): return eval_collection.find_one({'run_id': run_id, 'target_id': target_id})
+    def find_run(run_id: str, target_id: str): return result_collection.find_one({'run_id': run_id, 'target_id': target_id})
     # -----------------------------------------------------------------------------------------------
     # Setup
     # -----------------------------------------------------------------------------------------------
     initialize_logging(log_filename = 'classification.log')
     logging.info(f"Starting classification evaluation on {args.run_mode} mode, storage mode {args.storage_mode}")
 
-
-    # -----------------------------------------------------------------------------------------------
-    # MLFlow
-    # -----------------------------------------------------------------------------------------------
-    # mlflow.set_tracking_uri(uri="http://127.0.0.1:6969")
-    # mlflow.set_experiment(experiment_name)
-
-
-
-    # -----------------------------------------------------------------------------------------------
-    # Run ID Retrieval
-    # -----------------------------------------------------------------------------------------------
-    # all_runs = mlflow.search_runs()[['run_id', 'tags.mlflow.runName']]
-    # possible_run_ids = all_runs[all_runs['tags.mlflow.runName'] == run_name]
-    # run_id = possible_run_ids['run_id'].values[0] if len(possible_run_ids) > 0 else None
 
 
 
@@ -121,3 +106,66 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------
     # Evaluate
     # -----------------------------------------------------------------------------------------------
+    # Get results from all targets
+    logging.info("Get results from all targets")
+    Ariel = (
+        result_collection
+        .find(
+            { "run_name": "overall_our_model_fixed_config" },
+        ).to_list()
+    )
+
+    for run_package in Ariel:
+        run_name = run_package['run_name']
+        best_config = run_package['best_config']
+        classifier = run_package['classifier']
+        target_id = run_package['target_id']
+        
+        
+        # Modify alpha
+        half_before_alpha = best_config.split('-alpha-')[0]
+        half_after_alpha = best_config.split('-alpha-')[1].split('-', maxsplit = 1)[1]
+
+        max_alpha_cfg_id = f"{half_before_alpha}-alpha-10000-{half_after_alpha}"
+        min_alpha_cfg_id = f"{half_before_alpha}-alpha-0-{half_after_alpha}"
+
+        # Prep result
+        min_alpha_abl_result = {
+            'dataset': dataset_id,
+            'target_id': target_id,
+            'run_name': 'zero_alpha',
+            'config': min_alpha_cfg_id,
+            'classifier': classifier,
+            "summary": {},
+        }
+
+        H = run_cfg_data[min_alpha_cfg_id]
+        target = tar_data[target_id]
+        min_alpha_abl_result["Overall"] = evaluate_one_target(H, target, [classifier], target_id)[classifier]
+
+
+        # Compute summary
+        metrics_list = ["AUROC", "ACC", "PRE", "REC", "F1", "MCC", "AUPRC"]
+        Belle = pd.DataFrame.from_dict(min_alpha_abl_result['Overall'], orient='index')[metrics_list]
+        for metric in metrics_list:
+            min_alpha_abl_result['summary'][f'Mean {metric}'] = float(Belle[metric].mean(skipna=True))
+            min_alpha_abl_result['summary'][f'Median {metric}'] = float(Belle[metric].median(skipna=True))
+            min_alpha_abl_result['summary'][f'Std {metric}'] = float(Belle[metric].std(skipna=True))
+            min_alpha_abl_result['summary'][f'Max {metric}'] = float(Belle[metric].max(skipna=True))
+            min_alpha_abl_result['summary'][f'Min {metric}'] = float(Belle[metric].min(skipna=True))
+
+
+        # Save to MLFlow
+        logging.info(f"========================================================\n\n\n\n")
+        logging.info(f"Summary for target {target_id}")
+        for key in min_alpha_abl_result['summary'].keys():
+            logging.info(f"{key}: {min_alpha_abl_result['summary'][key]}")
+
+            if 'Mean AUROC' in key: 
+                for method in classification_methods_list:
+                    mlflow.log_metric(f'{target_id} Overall AUC', min_alpha_abl_result['summary'][key])
+            if 'Mean MCC' in key: mlflow.log_metric(f'{target_id} Overall MCC', min_alpha_abl_result['summary'][key])
+
+
+        # Save to MongoDB 
+        ablation_results.insert_one(min_alpha_abl_result)
