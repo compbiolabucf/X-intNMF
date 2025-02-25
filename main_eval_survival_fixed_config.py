@@ -175,7 +175,7 @@ if __name__ == '__main__':
                         logging.info(surv_result)
                         break
                     else:
-                        logging.info(f'p-value > 0.05: {surv_result["p_value"]}')
+                        logging.info(f'p-value > 0.02: {surv_result["p_value"]}')
                 except Exception as e:
                     logging.error('Error occurred:', e)
                     continue
