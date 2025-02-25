@@ -50,7 +50,6 @@ mongo = pymongo.MongoClient(
     username='bu1th4nh',
     password='ariel.anna.elsa',
 )
-mongo_db = mongo['SimilarSampleCrossOmicNMF']
 
 
 
@@ -71,13 +70,14 @@ def decode_target(target):
 # Run
 # -----------------------------------------------------------------------------------------------
 with st.spinner("Loading Data..."):
-    for dataset in ['BRCA', 'LUAD', 'OV']:
-        if st.session_state.get(dataset, None) is None:
-            print(f"Loading {dataset}...")
-            st.session_state[dataset] = pd.DataFrame(list(mongo_db[dataset].find({"run_name": {"$regex" : "baseline|overall"}}, {"_id": 0, "run_id": 1, "target_id": 1, "run_name": 1, "summary": 1})))
-        else:
-            st.session_state[dataset] = pd.DataFrame(list(mongo_db[dataset].find({"run_name": {"$regex" : "baseline|overall"}}, {"_id": 0, "run_id": 1, "target_id": 1, "run_name": 1, "summary": 1})))
-            print(f"Already loaded {dataset}.")
+    for omics_choice in ['2-omic', '3-omic']:
+        st.session_state[omics_choice] = {}
+        db_id = 'SimilarSampleCrossOmicNMF_3Omics' if omics_choice == '3-omic' else 'SimilarSampleCrossOmicNMF'
+        mongo_db = mongo[db_id]
+        for dataset in ['BRCA', 'LUAD', 'OV']:
+            print(f"Loading {dataset} of {omics_choice}...")
+            st.session_state[omics_choice][dataset] = pd.DataFrame(list(mongo_db[dataset].find({"run_name": {"$regex" : "baseline|overall"}}, {"_id": 0, "run_id": 1, "target_id": 1, "run_name": 1, "summary": 1})))
+
 
     st.session_state['targ_choice'] = {
         'BRCA': ['ER', 'HER2', 'PR', 'TN'],
@@ -88,31 +88,29 @@ with st.spinner("Loading Data..."):
     }
     
 
-    
+tab1, tab2 = st.tabs(["Classification", "Survival Analysis"])
 
-col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
-dataset_choice = col1.selectbox("Dataset", ["BRCA", "LUAD", "OV"], placeholder="Select dataset")
+with tab1:
+    col0, col1, col2, col3, col4 = st.columns([1, 1, 1, 1, 1])
 
-
-target_list = st.session_state['targ_choice'][dataset_choice]
-target_choice = col2.multiselect("Targets", target_list)
-
-metrics = col3.multiselect("Metrics", ['ACC', 'PRE', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC'], default=['MCC', 'AUROC'])
-statistics = col4.multiselect("Statistics", ["Mean", "Median", "Std", "Min", "Max"], default=['Mean'], placeholder="Select statistic")
+    omics_choice = col0.selectbox("Omics choice", ['2-omic', '3-omic'], placeholder="Select omics choice")
+    dataset_choice = col1.selectbox("Dataset", ["BRCA", "LUAD", "OV"], placeholder="Select dataset")
 
 
+    target_list = st.session_state['targ_choice'][dataset_choice]
+    target_choice = col2.multiselect("Targets", target_list)
 
 
+    metrics = col3.multiselect("Metrics", ['ACC', 'PRE', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC'], default=['MCC', 'AUROC'])
+    statistics = col4.multiselect("Statistics", ["Mean", "Median", "Std", "Min", "Max"], default=['Mean'], placeholder="Select statistic")
 
-if len(metrics) == 0: st.stop()
-if len(statistics) == 0: st.stop()
+    if len(metrics) == 0: st.stop()
+    if len(statistics) == 0: st.stop()
+    if st.button("Retrieve Result", use_container_width=True):
 
+        agged_result = None
 
-if st.button("Retrieve Result", use_container_width=True):
-    tab1, tab2, tab3 = st.tabs(["Score", "Strategy 2 Details", "Strategy 1 Details"])
-
-    with tab1:
-        data = st.session_state[dataset_choice]
+        data = st.session_state[omics_choice][dataset_choice]
         if data.empty:
             st.warning("No data found.")
             st.stop()
@@ -120,7 +118,6 @@ if st.button("Retrieve Result", use_container_width=True):
 
         # st.write("Label Choices:" + str(target_choice))
         for target in target_choice:
-            st.write(decode_target(target))
             
             if dataset_choice == 'BRCA': subdata = data[data["target_id"] == target].copy(deep=True)
             else: subdata = data[data["target_id"].str.contains(target.lower())].copy(deep=True)
@@ -131,19 +128,25 @@ if st.button("Retrieve Result", use_container_width=True):
                 
                 summary = subdata.loc[index, 'summary']
                 run_name = subdata.loc[index, 'run_name']
+                if('mRNAmethDNA' in run_name or 'miRNAmethDNA' in run_name):
+                    Ariel = run_name.split('_')
+                    run_name = f"{Ariel[0]}_{Ariel[1]}+{Ariel[2]}"
 
-                # if(run_name == 'overall_our_model'): continue
+
+
                 if('baseline' in run_name and 'MOFA2' not in run_name): summary = {run_name.split('_')[1]: summary}
                 if('overall' in run_name and 'MOFA2' not in run_name): 
                     summary = {"Ours": summary}
                     if subdata.loc[index, 'run_name'] == 'overall_our_model': continue
-                    if subdata.loc[index, 'run_name'] == 'overall_our_model_fixed_config': subdata.loc[index, 'run_name'] = 'Our model, strategy 2'
+                    if subdata.loc[index, 'run_name'] == 'overall_our_model_fixed_config': subdata.loc[index, 'run_name'] = 'X-intMF'
                 if('alpha' in run_name): continue
+
+
 
                 for classifier in summary.keys():
                     Ariel = summary[classifier]
                     data_row = {
-                        'Run Name': subdata.loc[index, 'run_name'].split('_')[-1] if '_' in subdata.loc[index, 'run_name'] else subdata.loc[index, 'run_name'],
+                        'Run Name': run_name.split('_')[-1] if '_' in subdata.loc[index, 'run_name'] else subdata.loc[index, 'run_name'],
                         'Classifier': classifier,
                     }
                     if dataset_choice != 'BRCA':
@@ -163,123 +166,211 @@ if st.button("Retrieve Result", use_container_width=True):
             finaldata.rename(columns={'index': 'test_id'}, inplace=True)
             finaldata.sort_values(by=['AUROC Mean', 'MCC Mean'], inplace=True, ascending=False)
 
-
             
-            st.dataframe(finaldata, use_container_width=True)
+            # st.write(decode_target(target))
+            # st.dataframe(finaldata.drop(columns=['Lower-bound Threshold', 'Upper-bound Threshold']), use_container_width=True)
 
-    with tab2:
-        data = st.session_state[dataset_choice]
-        if data.empty:
-            st.warning("No data found.")
-            st.stop()
-        non_classifier_list = ["run_id", "target_id", "run_name", "summary"]
 
-        # st.write("Label Choices:" + str(target_choice))
-        for target in target_choice:
-            st.write(decode_target(target))
+
+            data_to_agg = finaldata[['Run Name', 'MCC Mean', 'AUROC Mean']].rename(columns={'AUROC Mean': f'{target} AUROC', 'MCC Mean': f'{target} MCC'})
+
+
+            for idx in data_to_agg.index:
+                name = finaldata.loc[idx, 'Run Name']
+                if '+' in name: data_to_agg.loc[idx, 'Run Name'] = str(name).replace('+', ' + ')
+                if 'MOFA2' in name: data_to_agg.loc[idx, 'Run Name'] = f'{name} + {finaldata.loc[idx, "Classifier"]}'
+
+
+
+            data_to_agg.set_index('Run Name', inplace=True)
+            data_to_agg.sort_index(inplace=True, ascending=False)
+
+            if agged_result is None: agged_result = data_to_agg
+            else:
+                if agged_result.index.equals(data_to_agg.index):
+                    for col in data_to_agg.columns:
+                        agged_result[col] = data_to_agg[col]
+
+
+
+        st.markdown("## Aggregated Result")
+        st.dataframe(agged_result, use_container_width=True)
+
+        def format_max_col(column):
+            max_val = np.max(column)
+            rtn = []
+            for x in column:
+                if x == max_val: rtn.append(f"\\textbf{{{x:.04f}}}")
+                else: rtn.append(f"{x:.04f}")
+            return rtn
+        
+        def format_name(x):
+            if ' + Random Forest' in x: return x.replace('2 + Random Forest', '+RF')
+            elif ' + Logistic Regression' in x: return x.replace('2 + Logistic Regression', '+LR')
+            else: return x
+        
+        agged_result = agged_result.apply(format_max_col)
+        agged_result.index = agged_result.index.map(format_name)
+
+        code_str = agged_result.to_latex(escape=False)
+        st.code(code_str, language='latex')
+
+
+
+with tab2:
+    col1, col2, col3 = st.columns([1, 1, 1])
+    omics_choice = col1.selectbox("Omics choice SA", ['2-omic', '3-omic'], placeholder="Select omics choice")
+    dataset_choice = col2.selectbox("Dataset SA", ["BRCA", "LUAD", "OV"], placeholder="Select dataset")
+    target_list = col3.multiselect("Targets SA", ['Survival', 'Diseasefree'], placeholder="Select targets")
+    target_list = [target.lower() for target in target_list]
+
+    if len(target_list) == 0: st.stop()
+
+    if st.button("Retrieve Surv. Result", use_container_width=True):
+        for target in target_list:
+            st.markdown(f'## {target.capitalize()}')
             
-            if dataset_choice == 'BRCA': subdata = data[data["target_id"] == target].copy(deep=True)
-            else: subdata = data[data["target_id"].str.contains(target.lower())].copy(deep=True)
+            mongo_db = mongo['SimilarSampleCrossOmicNMF_3Omics'] if omics_choice == '3-omic' else mongo['SimilarSampleCrossOmicNMF']
+            collection = mongo_db['SURVIVAL_ANALYSIS']
 
-            run_strat_detail = mongo_db[dataset_choice].find_one(
-                {
-                    "run_name": "overall_our_model_fixed_config",
-                    "target_id": target,
-                }
+
+            # Get data
+            data = pd.DataFrame.from_records(
+                collection
+                .find(
+                    {
+                        "dataset_id": dataset_choice,
+                        "surv_target": target,
+                    },
+                    {
+                        '_id': 0,
+                        'best_cfg_from': 1,
+                        'best_cfg': 1,
+                        'test_prognostic_index': 1,
+                        'p_value': 1,
+                        'kaplan_meier_X_low': 1,
+                        'kaplan_meier_Y_low': 1,
+                        'kaplan_meier_X_high': 1,
+                        'kaplan_meier_Y_high': 1,
+                        'kaplan_meier_censor_low': 1,
+                        'kaplan_meier_censor_high': 1,
+                        'kaplan_meier_censor_low_pred': 1,
+                        'kaplan_meier_censor_high_pred': 1,
+                        'test_low_risk_ids': 1,
+                        'test_high_risk_ids': 1,
+                        'best_alpha': 1,
+                    }
+                )
             )
-            hparams_run_detail = list(mongo_db['HPARAMS_OPTS'].find(
-                {
-                    "dataset": dataset_choice,
-                    "target_id": target,
-                    "config": run_strat_detail['best_config'],
-                    "classifier": run_strat_detail['classifier'],
-                },
-                {
-                    "_id": 0,
-                    "test_id": 1,
-                    "AUROC": 1,
-                }
-            ))
-
-            st.markdown(f"**Best Config**: {run_strat_detail['best_config']}")
-            st.markdown(f"**Classifier**: {run_strat_detail['classifier']}")
-            st.markdown(f"Mean AUROC Train: {run_strat_detail['best_AUROC_CV_train']:.04}")
+            st.dataframe(data, use_container_width=True)
 
 
-            test_result = pd.DataFrame.from_dict(run_strat_detail['Overall'], orient='index')[['MCC', 'AUROC']].rename(columns={'MCC': 'Test MCC', 'AUROC': 'Test AUROC'})
-            train_cv = pd.DataFrame.from_records(hparams_run_detail).set_index('test_id').rename(columns={'AUROC': 'Train CV AUROC'})
+            for idx in data.index:
+                st.markdown(f'##### Best config from {data.loc[idx, "best_cfg_from"]} - {data.loc[idx, "best_cfg"]}')
+                st.markdown(f'- Prognostic Index: **{data.loc[idx, "test_prognostic_index"]}**\n- p-value: **{data.loc[idx, "p_value"]}**\n- Alpha: **{data.loc[idx, "best_alpha"]}**')
 
-            test_result = test_result.merge(train_cv, how='left', left_index=True, right_index=True)
+                Ariel = data.loc[idx]
+
+                X_low = Ariel['kaplan_meier_X_low']
+                Y_low = Ariel['kaplan_meier_Y_low']
+                X_high = Ariel['kaplan_meier_X_high']
+                Y_high = Ariel['kaplan_meier_Y_high']
+                best_alpha = Ariel['best_alpha']
+                censor_low = Ariel['kaplan_meier_censor_low']
+                censor_high = Ariel['kaplan_meier_censor_high']
+                censor_low_pred = Ariel['kaplan_meier_censor_low_pred']
+                censor_high_pred = Ariel['kaplan_meier_censor_high_pred']
+                low_risk_ids = Ariel['test_low_risk_ids']
+                high_risk_ids = Ariel['test_high_risk_ids']
+                p_value = Ariel['p_value']
 
 
-            col11, col12 = st.columns([1, 3])
-            
-            formatted_test_result = test_result.style.format({"Train CV AUROC": "{:.4f}".format, "Test AUROC": "{:.4f}".format, })
-            col11.dataframe(formatted_test_result, use_container_width=True)
+                # Plot survival functions using Plotly
+                fig = px.line()
 
+                fig.add_scatter(x=X_low, y=Y_low, mode='lines', name=f"low-risk ({len(low_risk_ids)})", line=dict(color='blue', dash='dash'))
+                fig.add_scatter(x=X_high, y=Y_high, mode='lines', name=f"high-risk ({len(high_risk_ids)})", line=dict(color='red'))
 
-            fig = px.line(
-                test_result, 
-                x = test_result.index,
-                y = ['Test AUROC', 'Train CV AUROC'],
-                title=f"Train CV and Test Metrics for {target} in {dataset_choice}", 
-                labels={'value': 'Metrics', 'index': 'Test ID'},
-                color_discrete_map={'Test AUROC': 'red', 'Train CV AUROC': 'blue'}
-            )
-            fig.update_yaxes(range=[0, 1])
-            col12.plotly_chart(fig,  use_container_width=True, key = str(uuid.uuid4()))
+                # Plot censor points
+                fig.add_scatter(x=censor_high, y=censor_high_pred, mode='markers', name='Censor High', marker=dict(color='black', symbol='cross'))
+                fig.add_scatter(x=censor_low, y=censor_low_pred, mode='markers', name='Censor Low', marker=dict(color='black', symbol='cross'))
+
+                # Add labels and legend
+                fig.update_layout(
+                    title="Kaplan-Meier Curves",
+                    xaxis_title="Time (Months)",
+                    yaxis_title="Survival Probability",
+                    legend_title="Risk Group"
+                )
+
+                # Add p-value in a box on the bottom left of the plot
+                fig.add_annotation(
+                    xref="paper", yref="paper",
+                    x=0.03, y=0.05,
+                    text=f'p-value: {p_value:.4f}',
+                    showarrow=False,
+                    bordercolor="black",
+                    borderwidth=1,
+                    borderpad=4,
+                    bgcolor="white",
+                    opacity=1
+                )
+                fig.update_yaxes(range=[-0.02, 1.02])
+                fig.update_xaxes(range=[-0.02, 122]) # max 10 years
+
+                # Show plot
+                baseline = data.get('baseline', None)
+                if baseline is None:
+                    st.plotly_chart(fig)
+                else:
+                    col1, col2 = st.columns([1, 1])
+
+                    fig_baseline = px.line()
+                    fig_baseline.add_scatter(x=baseline['kaplan_meier_X_low'], y=baseline['kaplan_meier_Y_low'], mode='lines', name=f"low-risk ({len(low_risk_ids)})", line=dict(color='blue', dash='dash'))
+                    fig_baseline.add_scatter(x=baseline['kaplan_meier_X_high'], y=baseline['kaplan_meier_Y_high'], mode='lines', name=f"high-risk ({len(high_risk_ids)})", line=dict(color='red'))
+                    fig_baseline.add_scatter(x=baseline['kaplan_meier_censor_high'], y=baseline['kaplan_meier_censor_high_pred'], mode='markers', name='Censor High', marker=dict(color='black', symbol='cross'))
+                    fig_baseline.add_scatter(x=baseline['kaplan_meier_censor_low'], y=baseline['kaplan_meier_censor_low_pred'], mode='markers', name='Censor Low', marker=dict(color='black', symbol='cross'))
+                    fig_baseline.update_layout(
+                        title="Kaplan-Meier Curves (Baseline)",
+                        xaxis_title="Time (Months)",
+                        yaxis_title="Survival Probability",
+                        legend_title="Risk Group"
+                    )
+
+                    fig_baseline.add_annotation(
+                        xref="paper", yref="paper",
+                        x=0.03, y=0.05,
+                        text=f'p-value: {baseline["p_value"]:.4f}',
+                        showarrow=False,
+                        bordercolor="black",
+                        borderwidth=1,
+                        borderpad=4,
+                        bgcolor="white",
+                        opacity=1
+                    )
+                    fig_baseline.update_yaxes(range=[-0.02, 1.02])
+                    fig_baseline.update_xaxes(range=[-0.02, 122])
+                    col1.plotly_chart(fig)
+                    col2.plotly_chart(fig_baseline)
+                    st.markdown(f"Baseline p-value: {baseline['p_value']:.4f}")
+                    st.markdown(f"Baseline Alpha: {baseline['best_alpha']:.4f}")
 
                 
 
-    with tab3:
-        data = st.session_state[dataset_choice]
-        if data.empty:
-            st.warning("No data found.")
-            st.stop()
-        non_classifier_list = ["run_id", "target_id", "run_name", "summary"]
 
-        # st.write("Label Choices:" + str(target_choice))
-        for target in target_choice:
-            st.write(decode_target(target))
-            
-            if dataset_choice == 'BRCA': subdata = data[data["target_id"] == target].copy(deep=True)
-            else: subdata = data[data["target_id"].str.contains(target.lower())].copy(deep=True)
-
-            run_strat_detail = (
-                pd.DataFrame.from_dict(mongo_db[dataset_choice].find_one(
-                    {
-                        "run_name": "overall_our_model",
-                        "target_id": target,
-                    }
-                )['Overall'], orient='index')
-                [['config_id', 'classifier', 'best_AUROC_param_optimization', 'AUROC', 'train_positive_count',  'train_negative_count', 'test_positive_count',  'test_negative_count']]
-                .rename(columns={'best_AUROC_param_optimization': 'Train AUROC', 'config_id': 'Config', 'classifier': 'Classifier', 'AUROC': 'Test AUROC'})
-            )
-
-            run_strat_detail['Train Cnt'] = run_strat_detail[['train_positive_count',  'train_negative_count']].apply(lambda x: f"{x[0]}/{x[1]}", axis=1)
-            run_strat_detail['Test Cnt'] = run_strat_detail[['test_positive_count',  'test_negative_count']].apply(lambda x: f"{x[0]}/{x[1]}", axis=1)
-            run_strat_detail = run_strat_detail[['Config', 'Classifier', 'Train AUROC', 'Test AUROC', 'Train Cnt', 'Test Cnt']]
-
-            col21, col22 = st.columns([1, 3])
-            col21.dataframe(run_strat_detail, use_container_width=True)
-
-            fig = px.line(
-                test_result, 
-                x = test_result.index,
-                y = ['Test AUROC', 'Train CV AUROC'],
-                title=f"Train CV and Test Metrics for {target} in {dataset_choice}", 
-                labels={'value': 'Metrics', 'index': 'Test ID'},
-                color_discrete_map={'Test AUROC': 'red', 'Train CV AUROC': 'blue'}
-            )
-            fig.update_yaxes(range=[0, 1])
-            col22.plotly_chart(fig,  use_container_width=True, key = str(uuid.uuid4()))
-
-
-
-        
+                if st.button("Re-train and Download PDF", use_container_width=True, key=uuid.uuid4()):
+                    pass
 
 
 
 
 
 
+
+
+
+
+
+
+
+    

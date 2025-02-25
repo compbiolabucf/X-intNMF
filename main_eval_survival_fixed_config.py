@@ -73,19 +73,35 @@ if __name__ == '__main__':
 
 
     # -----------------------------------------------------------------------------------------------
-    # MLFlow
+    # Data
     # -----------------------------------------------------------------------------------------------
-    # mlflow.set_tracking_uri(uri="http://127.0.0.1:6969")
-    # mlflow.set_experiment(experiment_name)
+    if args.omics_mode == "3omics":
+
+        bipart_data = pd.read_parquet(f'{DATA_PATH}/bipart.parquet', storage_options=storage_options)
+        methDNA = pd.read_parquet(f'{DATA_PATH}/methDNA.parquet', storage_options=storage_options)
+        miRNA = pd.read_parquet(f'{DATA_PATH}/miRNA.parquet', storage_options=storage_options)
+        mRNA = pd.read_parquet(f'{DATA_PATH}/mRNA.parquet', storage_options=storage_options)
+
+        features_list = [mRNA.index.to_list(), miRNA.index.to_list(), methDNA.index.to_list()]   
+        omics_data = [mRNA.to_numpy(np.float64, True), miRNA.to_numpy(np.float64, True), methDNA.to_numpy(np.float64, True)]
+        
+    elif args.omics_mode == "2omics":
+
+        bipart_data = pd.read_parquet(f'{DATA_PATH}/bipart.parquet', storage_options=storage_options)
+        miRNA = pd.read_parquet(f'{DATA_PATH}/miRNA.parquet', storage_options=storage_options)
+        mRNA = pd.read_parquet(f'{DATA_PATH}/mRNA.parquet', storage_options=storage_options)
+
+        features_list = [mRNA.index.to_list(), miRNA.index.to_list()]   
+        omics_data = [mRNA.to_numpy(np.float64, True), miRNA.to_numpy(np.float64, True)]
 
 
 
-    # -----------------------------------------------------------------------------------------------
-    # Run ID Retrieval
-    # -----------------------------------------------------------------------------------------------
-    # all_runs = mlflow.search_runs()[['run_id', 'tags.mlflow.runName']]
-    # possible_run_ids = all_runs[all_runs['tags.mlflow.runName'] == run_name]
-    # run_id = possible_run_ids['run_id'].values[0] if len(possible_run_ids) > 0 else None
+
+    sample_list = mRNA.columns.to_list()
+    off_diag_interactions = {(0, 1): bipart_data.to_numpy(np.float64, True)}
+    m = [omic.shape[0] for omic in omics_data]
+
+
 
 
 
@@ -172,7 +188,30 @@ if __name__ == '__main__':
 
 
                     if surv_result['p_value'] < 0.05:
-                        logging.info(surv_result)
+                        logging.info(f'p-value < 0.05: {surv_result["p_value"]}')
+                        logging.info(f'Comparing with original data')
+
+
+                        # Compare with original data
+                        H_original_data = pd.concat(
+                            [x.loc[:, survival.index.tolist()] for x in omics_data],
+                            axis=0,
+                        )
+                        baseline = surv_analysis(
+                            H_original_data,
+                            train_sample_ids,
+                            survival.loc[train_sample_ids],
+                            test_sample_ids,
+                            survival.loc[test_sample_ids],
+                            event_label,
+                            time_label,
+                        )
+                        baseline.pop('train_sample_ids', default=None)
+                        baseline.pop('test_sample_ids', default=None)
+                        surv_result['baseline'] = baseline
+                        logging.info(f"Baseline: {baseline['p_value']}")
+
+
                         break
                     else:
                         logging.info(f'p-value > 0.02: {surv_result["p_value"]}')
@@ -184,6 +223,8 @@ if __name__ == '__main__':
             # Save result
             if surv_result is None:
                 continue
+
+
             surv_result['dataset_id'] = dataset_id
             surv_result['surv_target'] = surv_target_id
             surv_result['best_cfg_from'] = classification_target_id
