@@ -352,18 +352,9 @@ with tab2:
                     pdf_data = Jasmine.content
 
                     # Show this PDF in Streamlit
-                    st.markdown("### PDF Preview")
+                    st.markdown("##### PDF Preview")
                     pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
                     st.markdown(f'<iframe src="data:application/pdf;base64,{pdf_base64}" width="100%" height="600px"></iframe>', unsafe_allow_html=True)
-
-                    st.download_button(
-                        label="Download PDF",
-                        data=pdf_data,
-                        file_name=f"{omics_choice}_{dataset_choice}_{target}_survival_analysis.pdf",
-                        mime="application/pdf",
-                        key=str(uuid.uuid4()),  # Ensure unique key for each download button
-                        use_container_width=True
-                    )
                 else:
                     st.error("Failed to generate PDF.")
                     st.error(Jasmine.text)
