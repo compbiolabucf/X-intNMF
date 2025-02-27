@@ -26,6 +26,7 @@ import pandas as pd
 from tqdm import tqdm
 from typing import List, Dict, Any, Tuple, Union, Literal
 
+import base64
 import uuid
 import pymongo
 import streamlit as st
@@ -297,40 +298,40 @@ with tab2:
                 p_value = Ariel['p_value']
 
 
-                # Plot survival functions using Plotly
-                fig = px.line()
+                # # Plot survival functions using Plotly
+                # fig = px.line()
 
-                fig.add_scatter(x=X_low, y=Y_low, mode='lines', name=f"low-risk ({len(low_risk_ids)})", line=dict(color='blue', dash='dash'))
-                fig.add_scatter(x=X_high, y=Y_high, mode='lines', name=f"high-risk ({len(high_risk_ids)})", line=dict(color='red'))
+                # fig.add_scatter(x=X_low, y=Y_low, mode='lines', name=f"low-risk ({len(low_risk_ids)})", line=dict(color='blue', dash='dash'))
+                # fig.add_scatter(x=X_high, y=Y_high, mode='lines', name=f"high-risk ({len(high_risk_ids)})", line=dict(color='red'))
 
-                # Plot censor points
-                fig.add_scatter(x=censor_high, y=censor_high_pred, mode='markers', name='Censor High', marker=dict(color='black', symbol='cross'))
-                fig.add_scatter(x=censor_low, y=censor_low_pred, mode='markers', name='Censor Low', marker=dict(color='black', symbol='cross'))
+                # # Plot censor points
+                # fig.add_scatter(x=censor_high, y=censor_high_pred, mode='markers', name='Censor High', marker=dict(color='black', symbol='cross'))
+                # fig.add_scatter(x=censor_low, y=censor_low_pred, mode='markers', name='Censor Low', marker=dict(color='black', symbol='cross'))
 
-                # Add labels and legend
-                fig.update_layout(
-                    title="Kaplan-Meier Curves",
-                    xaxis_title="Time (Months)",
-                    yaxis_title="Survival Probability",
-                    legend_title="Risk Group"
-                )
+                # # Add labels and legend
+                # fig.update_layout(
+                #     title="Kaplan-Meier Curves",
+                #     xaxis_title="Time (Months)",
+                #     yaxis_title="Survival Probability",
+                #     legend_title="Risk Group"
+                # )
 
-                # Add p-value in a box on the bottom left of the plot
-                fig.add_annotation(
-                    xref="paper", yref="paper",
-                    x=0.03, y=0.05,
-                    text=f'p-value: {p_value:.4f}',
-                    showarrow=False,
-                    bordercolor="black",
-                    borderwidth=1,
-                    borderpad=4,
-                    bgcolor="white",
-                    opacity=1
-                )
-                fig.update_yaxes(range=[-0.02, 1.02])
-                fig.update_xaxes(range=[-0.02, 122]) # max 10 years
+                # # Add p-value in a box on the bottom left of the plot
+                # fig.add_annotation(
+                #     xref="paper", yref="paper",
+                #     x=0.03, y=0.05,
+                #     text=f'p-value: {p_value:.4f}',
+                #     showarrow=False,
+                #     bordercolor="black",
+                #     borderwidth=1,
+                #     borderpad=4,
+                #     bgcolor="white",
+                #     opacity=1
+                # )
+                # fig.update_yaxes(range=[-0.02, 1.02])
+                # fig.update_xaxes(range=[-0.02, 122]) # max 10 years
 
-                st.plotly_chart(fig)
+                # st.plotly_chart(fig)
                 
 
 
@@ -349,6 +350,12 @@ with tab2:
                 if Jasmine.status_code == 200:
                     # st.success("PDF generated successfully!")
                     pdf_data = Jasmine.content
+
+                    # Show this PDF in Streamlit
+                    st.markdown("### PDF Preview")
+                    pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
+                    st.markdown(f'<iframe src="data:application/pdf;base64,{pdf_base64}" width="100%" height="600px"></iframe>', unsafe_allow_html=True)
+
                     st.download_button(
                         label="Download PDF",
                         data=pdf_data,

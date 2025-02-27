@@ -244,7 +244,7 @@ def get_pdf(input: dict):
 
     # Add p-value to the plot
     p_value = results.p_value
-    ax.text(0.03, 0.05, f'p-value: {p_value:.4f}', transform=ax.transAxes, bbox=dict(facecolor='white', alpha=0.5, edgecolor='black'))
+    ax.text(0.03, 0.05, f'p-value: {p_value:.5f}', transform=ax.transAxes, bbox=dict(facecolor='white', alpha=0.5, edgecolor='black'))
 
     # Save the plot as a PDF object and return it through API
 
