@@ -18,6 +18,7 @@
 # -----------------------------------------------------------------------------------------------
 
 
+import requests
 import mlflow
 import logging
 import numpy as np
@@ -170,8 +171,9 @@ with tab1:
                 }
             ).to_list()
             for idx, ablation in enumerate(ablation_data):
-                if ablation['run_name'] == 'zero_alpha': ablation_data[idx]['run_name'] = 'X-intMF ($\\alpha$=0)'
-                if ablation['run_name'] == 'max_alpha': ablation_data[idx]['run_name'] = 'X-intMF ($\\alpha$=10000)'
+                if ablation['run_name'] == 'zero_alpha': ablation_data[idx]['run_name'] = 'X-intMF ($\\alpha=0$)'
+                if ablation['run_name'] == 'max_alpha': ablation_data[idx]['run_name'] = 'X-intMF ($\\alpha=10000$)'
+                if ablation['run_name'] == 'baseline': ablation_data[idx]['run_name'] = 'Baseline'
 
             for ablation in ablation_data:
                 data_row = {
@@ -239,6 +241,7 @@ with tab1:
         agged_result = agged_result.apply(format_max_col)
         agged_result.index = agged_result.index.map(format_name)
 
+        st.markdown("## LaTeX Code")
         code_str = agged_result.to_latex(escape=False)
         st.code(code_str, language='latex')
 
@@ -268,24 +271,6 @@ with tab2:
                     {
                         "dataset_id": dataset_choice,
                         "surv_target": target,
-                    },
-                    {
-                        '_id': 0,
-                        'best_cfg_from': 1,
-                        'best_cfg': 1,
-                        'test_prognostic_index': 1,
-                        'p_value': 1,
-                        'kaplan_meier_X_low': 1,
-                        'kaplan_meier_Y_low': 1,
-                        'kaplan_meier_X_high': 1,
-                        'kaplan_meier_Y_high': 1,
-                        'kaplan_meier_censor_low': 1,
-                        'kaplan_meier_censor_high': 1,
-                        'kaplan_meier_censor_low_pred': 1,
-                        'kaplan_meier_censor_high_pred': 1,
-                        'test_low_risk_ids': 1,
-                        'test_high_risk_ids': 1,
-                        'best_alpha': 1,
                     }
                 )
             )
@@ -345,48 +330,37 @@ with tab2:
                 fig.update_yaxes(range=[-0.02, 1.02])
                 fig.update_xaxes(range=[-0.02, 122]) # max 10 years
 
-                # Show plot
-                baseline = data.get('baseline', None)
-                if baseline is None:
-                    st.plotly_chart(fig)
-                else:
-                    col1, col2 = st.columns([1, 1])
-
-                    fig_baseline = px.line()
-                    fig_baseline.add_scatter(x=baseline['kaplan_meier_X_low'], y=baseline['kaplan_meier_Y_low'], mode='lines', name=f"low-risk ({len(low_risk_ids)})", line=dict(color='blue', dash='dash'))
-                    fig_baseline.add_scatter(x=baseline['kaplan_meier_X_high'], y=baseline['kaplan_meier_Y_high'], mode='lines', name=f"high-risk ({len(high_risk_ids)})", line=dict(color='red'))
-                    fig_baseline.add_scatter(x=baseline['kaplan_meier_censor_high'], y=baseline['kaplan_meier_censor_high_pred'], mode='markers', name='Censor High', marker=dict(color='black', symbol='cross'))
-                    fig_baseline.add_scatter(x=baseline['kaplan_meier_censor_low'], y=baseline['kaplan_meier_censor_low_pred'], mode='markers', name='Censor Low', marker=dict(color='black', symbol='cross'))
-                    fig_baseline.update_layout(
-                        title="Kaplan-Meier Curves (Baseline)",
-                        xaxis_title="Time (Months)",
-                        yaxis_title="Survival Probability",
-                        legend_title="Risk Group"
-                    )
-
-                    fig_baseline.add_annotation(
-                        xref="paper", yref="paper",
-                        x=0.03, y=0.05,
-                        text=f'p-value: {baseline["p_value"]:.4f}',
-                        showarrow=False,
-                        bordercolor="black",
-                        borderwidth=1,
-                        borderpad=4,
-                        bgcolor="white",
-                        opacity=1
-                    )
-                    fig_baseline.update_yaxes(range=[-0.02, 1.02])
-                    fig_baseline.update_xaxes(range=[-0.02, 122])
-                    col1.plotly_chart(fig)
-                    col2.plotly_chart(fig_baseline)
-                    st.markdown(f"Baseline p-value: {baseline['p_value']:.4f}")
-                    st.markdown(f"Baseline Alpha: {baseline['best_alpha']:.4f}")
-
+                st.plotly_chart(fig)
                 
 
 
-                if st.button("Re-train and Download PDF", use_container_width=True, key=uuid.uuid4()):
-                    pass
+                Jasmine = requests.post(
+                    url='http://localhost:6789/survival_pdf',
+                    json={
+                        'omics_mode':           omics_choice,
+                        'dataset_id':           dataset_choice,
+                        'surv_target':          target,
+                        'best_cfg':             Ariel['best_cfg'],
+                        'best_alpha':           Ariel['best_alpha'],
+                        'train_sample_ids':     list(Ariel['train_sample_ids']),
+                        'test_sample_ids':      list(Ariel['test_sample_ids']),
+                    }
+                )
+                if Jasmine.status_code == 200:
+                    # st.success("PDF generated successfully!")
+                    pdf_data = Jasmine.content
+                    st.download_button(
+                        label="Download PDF",
+                        data=pdf_data,
+                        file_name=f"{omics_choice}_{dataset_choice}_{target}_survival_analysis.pdf",
+                        mime="application/pdf",
+                        key=str(uuid.uuid4()),  # Ensure unique key for each download button
+                        use_container_width=True
+                    )
+                else:
+                    st.error("Failed to generate PDF.")
+                    st.error(Jasmine.text)
+                
 
 
 
