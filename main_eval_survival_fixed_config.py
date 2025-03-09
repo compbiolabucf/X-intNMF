@@ -193,41 +193,38 @@ if __name__ == '__main__':
                     logging.error('Error occurred:', e)
                     continue
 
-                p_value_threshold = 0.01
+                p_value_threshold = 0.02
                 if surv_result['p_value'] < p_value_threshold:
-                    logging.info(f'p-value < {p_value_threshold}: {surv_result["p_value"]}')
-                    logging.info(f'Comparing with original data')
-
-                    logging.info("Acquiring lock...")
-                    lock = FileLock("/tmp/SimilarSampleCrossOmicNMF.SurvivalAnal.lock")
-
-                    with lock:
-                        try:
-                            logging.warning("Acquired lock")
-
-
-                            # Compare with original data
-                            H_original_data = pd.concat(
-                                [x[survival.index.tolist()].copy(deep=True) for x in omics_data],
-                                axis=0,
-                            ).T
-                            baseline = surv_analysis(
-                                H_original_data,
-                                train_sample_ids,
-                                survival.loc[train_sample_ids],
-                                test_sample_ids,
-                                survival.loc[test_sample_ids],
-                                event_label,
-                                time_label,
-                            )
-                            baseline.pop('train_sample_ids', default=None)
-                            baseline.pop('test_sample_ids', default=None)
-                            surv_result['baseline'] = baseline
-                            logging.info(f"Baseline: {baseline['p_value']}")
-                            logging.info("Lock released")
-                        except Exception as e:
-                            logging.error('Error occurred when eval-ing baselines:', e)
-                            continue
+                    # logging.info(f'p-value < {p_value_threshold}: {surv_result["p_value"]}')
+                    # logging.info(f'Comparing with original data')
+                    # logging.info("Acquiring lock...")
+                    # lock = FileLock("/tmp/SimilarSampleCrossOmicNMF.SurvivalAnal.lock")
+                    # with lock:
+                    #     try:
+                    #         logging.warning("Acquired lock")
+                    #         # Compare with original data
+                    #         H_original_data = pd.concat(
+                    #             [x[survival.index.tolist()].copy(deep=True) for x in omics_data],
+                    #             axis=0,
+                    #         ).T
+                    #         baseline = surv_analysis(
+                    #             H_original_data,
+                    #             train_sample_ids,
+                    #             survival.loc[train_sample_ids],
+                    #             test_sample_ids,
+                    #             survival.loc[test_sample_ids],
+                    #             event_label,
+                    #             time_label,
+                    #             # best_alpha=surv_result['best_alpha'],
+                    #         )
+                    #         baseline.pop('train_sample_ids', default=None)
+                    #         baseline.pop('test_sample_ids', default=None)
+                    #         surv_result['baseline'] = baseline
+                    #         logging.info(f"Baseline: {baseline['p_value']}")
+                    #         logging.info("Lock released")
+                    #     except Exception as e:
+                    #         logging.error('Error occurred when eval-ing baselines:', e)
+                    #         continue
 
                     break
                 else:

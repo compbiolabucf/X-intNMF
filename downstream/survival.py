@@ -38,7 +38,7 @@ from sksurv.linear_model import CoxnetSurvivalAnalysis
 
 
 
-def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_surv_data, event_label, duration_label):
+def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_surv_data, event_label, duration_label, best_alpha = None):
     """
         Perform survival analysis using Cox Proportional Hazard with Elastic Net regularization.
 
@@ -82,23 +82,26 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
     # -----------------------------------------------------------------------------------------------
     # Coxnet with CV
     # -----------------------------------------------------------------------------------------------
-    logging.info("Optimizing alpha using Coxnet with CV")
-    coxnet_hparams_opt_pipe = make_pipeline(StandardScaler(), CoxnetSurvivalAnalysis(l1_ratio=0.5, alpha_min_ratio=0.01, max_iter=100))
-    coxnet_hparams_opt_pipe.fit(X_train, Y_train)
-    estimated_alphas = coxnet_hparams_opt_pipe.named_steps["coxnetsurvivalanalysis"].alphas_
+    if best_alpha is None:
+        logging.info("Optimizing alpha using Coxnet with CV")
+        coxnet_hparams_opt_pipe = make_pipeline(StandardScaler(), CoxnetSurvivalAnalysis(l1_ratio=0.5, alpha_min_ratio=0.01, max_iter=100))
+        coxnet_hparams_opt_pipe.fit(X_train, Y_train)
+        estimated_alphas = coxnet_hparams_opt_pipe.named_steps["coxnetsurvivalanalysis"].alphas_
 
-    # 5-fold CV to find optimal alpha
-    cv = KFold(n_splits=5, shuffle=True, random_state=0)
-    gcv = GridSearchCV(
-        make_pipeline(StandardScaler(), CoxnetSurvivalAnalysis(l1_ratio=0.5)),
-        param_grid={"coxnetsurvivalanalysis__alphas": [[v] for v in estimated_alphas]},
-        cv=cv,
-        error_score=0.5,
-        n_jobs=16,
-    ).fit(X_train, Y_train)
+        # 5-fold CV to find optimal alpha
+        cv = KFold(n_splits=5, shuffle=True, random_state=0)
+        gcv = GridSearchCV(
+            make_pipeline(StandardScaler(), CoxnetSurvivalAnalysis(l1_ratio=0.5, alpha_min_ratio=0.01, max_iter=100)),
+            param_grid={"coxnetsurvivalanalysis__alphas": [[v] for v in estimated_alphas]},
+            cv=cv,
+            error_score=0.5,
+            n_jobs=16,
+        ).fit(X_train, Y_train)
 
-    # print(gcv.best_estimator_.named_steps['coxnetsurvivalanalysis'].alphas[0])
-    alpha = gcv.best_estimator_.named_steps['coxnetsurvivalanalysis'].alphas[0]
+        # print(gcv.best_estimator_.named_steps['coxnetsurvivalanalysis'].alphas[0])
+        alpha = gcv.best_estimator_.named_steps['coxnetsurvivalanalysis'].alphas[0]
+        logging.info(f"Best alpha: {alpha}")
+    else: alpha = best_alpha
 
     # Fit final model
     logging.info(f"Fitting final model with alpha={alpha}")
