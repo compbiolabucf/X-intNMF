@@ -18,6 +18,7 @@
 # -----------------------------------------------------------------------------------------------
 
 
+import requests
 import mlflow
 import logging
 import numpy as np
@@ -25,6 +26,7 @@ import pandas as pd
 from tqdm import tqdm
 from typing import List, Dict, Any, Tuple, Union, Literal
 
+import base64
 import uuid
 import pymongo
 import streamlit as st
@@ -161,6 +163,33 @@ with tab1:
                                 if metric.lower() in Belle.lower() and stat.lower() in Belle.lower():
                                     data_row[f"{metric} {stat}"] = Ariel[Belle]
                     finaldata.append(data_row)
+
+
+            ablation_data = mongo_db['ABLATION_STUDIES'].find(
+                {
+                    'dataset': dataset_choice,
+                    'target_id': target,
+                }
+            ).to_list()
+            for idx, ablation in enumerate(ablation_data):
+                if ablation['run_name'] == 'zero_alpha': ablation_data[idx]['run_name'] = 'X-intMF ($\\alpha=0$)'
+                if ablation['run_name'] == 'max_alpha': ablation_data[idx]['run_name'] = 'X-intMF ($\\alpha=10000$)'
+                if ablation['run_name'] == 'baseline': ablation_data[idx]['run_name'] = 'Baseline'
+
+            for ablation in ablation_data:
+                data_row = {
+                    'Run Name': ablation['run_name'],
+                    'Classifier': ablation['classifier'],
+                }
+                for metric in metrics:
+                    for stat in statistics:
+                        keyword = f"{stat} {metric}"
+                        if keyword in ablation['summary'].keys():
+                            data_row[f"{metric} {stat}"] = ablation['summary'][keyword]
+                finaldata.append(data_row)
+
+            
+
             
             finaldata = pd.DataFrame(finaldata)
             finaldata.rename(columns={'index': 'test_id'}, inplace=True)
@@ -190,7 +219,8 @@ with tab1:
                 if agged_result.index.equals(data_to_agg.index):
                     for col in data_to_agg.columns:
                         agged_result[col] = data_to_agg[col]
-
+            
+            # st.dataframe(data_to_agg, use_container_width=True)
 
 
         st.markdown("## Aggregated Result")
@@ -212,6 +242,7 @@ with tab1:
         agged_result = agged_result.apply(format_max_col)
         agged_result.index = agged_result.index.map(format_name)
 
+        st.markdown("## LaTeX Code")
         code_str = agged_result.to_latex(escape=False)
         st.code(code_str, language='latex')
 
@@ -223,6 +254,8 @@ with tab2:
     dataset_choice = col2.selectbox("Dataset SA", ["BRCA", "LUAD", "OV"], placeholder="Select dataset")
     target_list = col3.multiselect("Targets SA", ['Survival', 'Diseasefree'], placeholder="Select targets")
     target_list = [target.lower() for target in target_list]
+
+    only_show_best = st.checkbox("Only show best result", value=True)
 
     if len(target_list) == 0: st.stop()
 
@@ -241,24 +274,6 @@ with tab2:
                     {
                         "dataset_id": dataset_choice,
                         "surv_target": target,
-                    },
-                    {
-                        '_id': 0,
-                        'best_cfg_from': 1,
-                        'best_cfg': 1,
-                        'test_prognostic_index': 1,
-                        'p_value': 1,
-                        'kaplan_meier_X_low': 1,
-                        'kaplan_meier_Y_low': 1,
-                        'kaplan_meier_X_high': 1,
-                        'kaplan_meier_Y_high': 1,
-                        'kaplan_meier_censor_low': 1,
-                        'kaplan_meier_censor_high': 1,
-                        'kaplan_meier_censor_low_pred': 1,
-                        'kaplan_meier_censor_high_pred': 1,
-                        'test_low_risk_ids': 1,
-                        'test_high_risk_ids': 1,
-                        'best_alpha': 1,
                     }
                 )
             )
@@ -266,100 +281,66 @@ with tab2:
 
 
             for idx in data.index:
-                st.markdown(f'##### Best config from {data.loc[idx, "best_cfg_from"]} - {data.loc[idx, "best_cfg"]}')
-                st.markdown(f'- Prognostic Index: **{data.loc[idx, "test_prognostic_index"]}**\n- p-value: **{data.loc[idx, "p_value"]}**\n- Alpha: **{data.loc[idx, "best_alpha"]}**')
-
                 Ariel = data.loc[idx]
-
-                X_low = Ariel['kaplan_meier_X_low']
-                Y_low = Ariel['kaplan_meier_Y_low']
-                X_high = Ariel['kaplan_meier_X_high']
-                Y_high = Ariel['kaplan_meier_Y_high']
-                best_alpha = Ariel['best_alpha']
-                censor_low = Ariel['kaplan_meier_censor_low']
-                censor_high = Ariel['kaplan_meier_censor_high']
-                censor_low_pred = Ariel['kaplan_meier_censor_low_pred']
-                censor_high_pred = Ariel['kaplan_meier_censor_high_pred']
-                low_risk_ids = Ariel['test_low_risk_ids']
-                high_risk_ids = Ariel['test_high_risk_ids']
-                p_value = Ariel['p_value']
-
-
-                # Plot survival functions using Plotly
-                fig = px.line()
-
-                fig.add_scatter(x=X_low, y=Y_low, mode='lines', name=f"low-risk ({len(low_risk_ids)})", line=dict(color='blue', dash='dash'))
-                fig.add_scatter(x=X_high, y=Y_high, mode='lines', name=f"high-risk ({len(high_risk_ids)})", line=dict(color='red'))
-
-                # Plot censor points
-                fig.add_scatter(x=censor_high, y=censor_high_pred, mode='markers', name='Censor High', marker=dict(color='black', symbol='cross'))
-                fig.add_scatter(x=censor_low, y=censor_low_pred, mode='markers', name='Censor Low', marker=dict(color='black', symbol='cross'))
-
-                # Add labels and legend
-                fig.update_layout(
-                    title="Kaplan-Meier Curves",
-                    xaxis_title="Time (Months)",
-                    yaxis_title="Survival Probability",
-                    legend_title="Risk Group"
-                )
-
-                # Add p-value in a box on the bottom left of the plot
-                fig.add_annotation(
-                    xref="paper", yref="paper",
-                    x=0.03, y=0.05,
-                    text=f'p-value: {p_value:.4f}',
-                    showarrow=False,
-                    bordercolor="black",
-                    borderwidth=1,
-                    borderpad=4,
-                    bgcolor="white",
-                    opacity=1
-                )
-                fig.update_yaxes(range=[-0.02, 1.02])
-                fig.update_xaxes(range=[-0.02, 122]) # max 10 years
-
-                # Show plot
-                baseline = data.get('baseline', None)
-                if baseline is None:
-                    st.plotly_chart(fig)
-                else:
-                    col1, col2 = st.columns([1, 1])
-
-                    fig_baseline = px.line()
-                    fig_baseline.add_scatter(x=baseline['kaplan_meier_X_low'], y=baseline['kaplan_meier_Y_low'], mode='lines', name=f"low-risk ({len(low_risk_ids)})", line=dict(color='blue', dash='dash'))
-                    fig_baseline.add_scatter(x=baseline['kaplan_meier_X_high'], y=baseline['kaplan_meier_Y_high'], mode='lines', name=f"high-risk ({len(high_risk_ids)})", line=dict(color='red'))
-                    fig_baseline.add_scatter(x=baseline['kaplan_meier_censor_high'], y=baseline['kaplan_meier_censor_high_pred'], mode='markers', name='Censor High', marker=dict(color='black', symbol='cross'))
-                    fig_baseline.add_scatter(x=baseline['kaplan_meier_censor_low'], y=baseline['kaplan_meier_censor_low_pred'], mode='markers', name='Censor Low', marker=dict(color='black', symbol='cross'))
-                    fig_baseline.update_layout(
-                        title="Kaplan-Meier Curves (Baseline)",
-                        xaxis_title="Time (Months)",
-                        yaxis_title="Survival Probability",
-                        legend_title="Risk Group"
+                try:
+                    Jasmine = requests.post(
+                        url='http://localhost:6789/survival_pdf',
+                        json={
+                            'omics_mode':           omics_choice,
+                            'dataset_id':           dataset_choice,
+                            'surv_target':          target,
+                            'best_cfg':             Ariel['best_cfg'],
+                            'best_alpha':           Ariel['best_alpha'],
+                            'train_sample_ids':     list(Ariel['train_sample_ids']),
+                            'test_sample_ids':      list(Ariel['test_sample_ids']),
+                        },
+                        # timeout=15
                     )
+                except requests.exceptions.RequestException as e:
+                    st.error(f"Error: {e}")
+                    continue
 
-                    fig_baseline.add_annotation(
-                        xref="paper", yref="paper",
-                        x=0.03, y=0.05,
-                        text=f'p-value: {baseline["p_value"]:.4f}',
-                        showarrow=False,
-                        bordercolor="black",
-                        borderwidth=1,
-                        borderpad=4,
-                        bgcolor="white",
-                        opacity=1
-                    )
-                    fig_baseline.update_yaxes(range=[-0.02, 1.02])
-                    fig_baseline.update_xaxes(range=[-0.02, 122])
-                    col1.plotly_chart(fig)
-                    col2.plotly_chart(fig_baseline)
-                    st.markdown(f"Baseline p-value: {baseline['p_value']:.4f}")
-                    st.markdown(f"Baseline Alpha: {baseline['best_alpha']:.4f}")
 
                 
+                
+                if Jasmine.status_code == 200:
+                    # st.success("PDF generated successfully!")
+                    pdf_base64 = Jasmine.json()['kmf_plot']
+                    baseline_pvalue = Jasmine.json()['baseline_pvalue']
+                    ablated_pvalue = Jasmine.json()['ablated_pvalue']
+                    model_pvalue = Ariel["p_value"]
+
+                    verdict = None
+                    if model_pvalue < baseline_pvalue and model_pvalue < 0.05:
+                        if model_pvalue < 0.01 and baseline_pvalue > 0.1:
+                            verdict = '<span style="color:green"> **Recommended, best attempt**</span>.'
+                        elif baseline_pvalue < 0.05:
+                            verdict = '<span style="color:red"> **Not recommended**</span>.'
+                        else:
+                            verdict = '<span style="color:green"> **Choose**</span>.'
+                    else:
+                        verdict = '<span style="color:red"> **Not recommended**</span>.'
 
 
-                if st.button("Re-train and Download PDF", use_container_width=True, key=uuid.uuid4()):
-                    pass
+                    if only_show_best and ('best' not in str(verdict)): continue
+
+
+                    st.markdown(f'### Best config from {data.loc[idx, "best_cfg_from"]} - {data.loc[idx, "best_cfg"]}')
+                    st.markdown(f'''
+                        - Prognostic Index: **{data.loc[idx, "test_prognostic_index"]:.06f}**
+                        - Alpha: **{Ariel["best_alpha"]:.06f}**
+                        - Model p-value: **{Ariel["p_value"]:.06f}**
+                        - Ablated p-value: **{ablated_pvalue:.06f}**
+                        - Baseline p-value: **{baseline_pvalue:.06f}**
+                        - Verdict: {verdict}
+                        - PDF preview:
+                    ''', unsafe_allow_html=True)
+                    # Show this PDF in Streamlit
+                    st.markdown(f'<iframe src="data:application/pdf;base64,{pdf_base64}" width="100%" height="475px"></iframe>', unsafe_allow_html=True)
+                else:
+                    st.error("Failed to generate PDF.")
+                    st.error(Jasmine.text)
+                
 
 
 

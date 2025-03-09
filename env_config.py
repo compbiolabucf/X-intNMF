@@ -130,9 +130,13 @@ elif args.run_mode == "hparams_opts":
 elif args.run_mode == "eval_classification":
     TARG_PATH = f'{base_data_path}/{disease_data_folder}/{cls_target_folder}'
     RUN_CFG_PATH = f'{base_result_path}/{disease_result_folder}'
+elif args.run_mode == "ablation_classification":
+    TARG_PATH = f'{base_data_path}/{disease_data_folder}/{cls_target_folder}'
+    RUN_CFG_PATH = f'{base_result_path}/{disease_result_folder}'
 elif args.run_mode == "eval_survival":
     SA_TARG_PATH = f'{base_data_path}/{disease_data_folder}/{surv_target_folder}'
     RUN_CFG_PATH = f'{base_result_path}/{disease_result_folder}'
+
 
 
 
@@ -145,12 +149,13 @@ RESULT_PRE_PATH = f'{base_result_path}/{disease_result_folder}'
 
 
 # GPU
-SELECTED_GPU_DEVICE = None
-if cp.cuda.is_available():
-    gpu = np.clip(args.gpu, 0, cp.cuda.runtime.getDeviceCount()-1)
-    cp.cuda.runtime.setDevice(gpu)
-    SELECTED_GPU_DEVICE = gpu
-if torch.cuda.is_available():
-    gpu = np.clip(args.gpu, 0, torch.cuda.device_count()-1)
-    SELECTED_GPU_DEVICE = gpu
+if args.run_mode == "integrate":
+    SELECTED_GPU_DEVICE = None
+    if cp.cuda.is_available():
+        gpu = np.clip(args.gpu, 0, cp.cuda.runtime.getDeviceCount()-1)
+        cp.cuda.runtime.setDevice(gpu)
+        SELECTED_GPU_DEVICE = gpu
+    if torch.cuda.is_available():
+        gpu = np.clip(args.gpu, 0, torch.cuda.device_count()-1)
+        SELECTED_GPU_DEVICE = gpu
 

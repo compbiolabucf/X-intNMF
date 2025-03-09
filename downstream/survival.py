@@ -38,7 +38,7 @@ from sksurv.linear_model import CoxnetSurvivalAnalysis
 
 
 
-def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_surv_data, event_label, duration_label, best_alpha = None):
+def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_surv_data, event_label, duration_label, return_kmf_object = False, alpha = None):
     """
         Perform survival analysis using Cox Proportional Hazard with Elastic Net regularization.
 
@@ -59,6 +59,10 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
             Column name for event status, where True indicates the event occurred and False indicates censoring.
         `duration_label`: `str`
             Column name for duration until the event or censoring.
+        `return_kmf_object`: `bool`
+            Whether to return the Kaplan-Meier object. Default is False.
+        `alpha`: `float`
+            The regularization parameter for the Coxnet model. If None, it will be optimized using cross-validation.
 
         Returns
         -------
@@ -82,7 +86,7 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
     # -----------------------------------------------------------------------------------------------
     # Coxnet with CV
     # -----------------------------------------------------------------------------------------------
-    if best_alpha is None:
+    if alpha is None:
         logging.info("Optimizing alpha using Coxnet with CV")
         coxnet_hparams_opt_pipe = make_pipeline(StandardScaler(), CoxnetSurvivalAnalysis(l1_ratio=0.5, alpha_min_ratio=0.01, max_iter=100))
         coxnet_hparams_opt_pipe.fit(X_train, Y_train)
@@ -91,20 +95,22 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
         # 5-fold CV to find optimal alpha
         cv = KFold(n_splits=5, shuffle=True, random_state=0)
         gcv = GridSearchCV(
-            make_pipeline(StandardScaler(), CoxnetSurvivalAnalysis(l1_ratio=0.5, alpha_min_ratio=0.01, max_iter=100)),
+            make_pipeline(StandardScaler(), CoxnetSurvivalAnalysis(l1_ratio=0.5)),
             param_grid={"coxnetsurvivalanalysis__alphas": [[v] for v in estimated_alphas]},
             cv=cv,
             error_score=0.5,
-            n_jobs=16,
+            n_jobs=4,
         ).fit(X_train, Y_train)
 
         # print(gcv.best_estimator_.named_steps['coxnetsurvivalanalysis'].alphas[0])
         alpha = gcv.best_estimator_.named_steps['coxnetsurvivalanalysis'].alphas[0]
-        logging.info(f"Best alpha: {alpha}")
-    else: alpha = best_alpha
 
-    # Fit final model
-    logging.info(f"Fitting final model with alpha={alpha}")
+        # Fit final model
+        logging.info(f"Fitting final model with alpha={alpha}")
+
+    # -----------------------------------------------------------------------------------------------
+    # Retrain
+    # -----------------------------------------------------------------------------------------------
     coxnet_pipe = make_pipeline(StandardScaler(), CoxnetSurvivalAnalysis(l1_ratio=0.5, alphas=[alpha]))
     coxnet_pipe.fit(X_train, Y_train)
 
@@ -137,7 +143,7 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
     kmf_high.fit(
         high_risk_time_exit, 
         high_risk_event_observed,
-        label='High-Risk Group'
+        label=f'High Risk ({len(high_risk_ids)})'
     )
 
 
@@ -147,7 +153,7 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
     kmf_low.fit(
         low_risk_time_exit, 
         low_risk_event_observed,
-        label='Low-Risk Group'
+        label=f'Low Risk ({len(low_risk_ids)})'
     )
     
 
@@ -158,10 +164,10 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
 
     # Extract X-Y data
     X_high = kmf_high_survival_function.index.values
-    Y_high = kmf_high_survival_function['High-Risk Group'].values
+    Y_high = kmf_high_survival_function[f'High Risk ({len(high_risk_ids)})'].values
 
     X_low = kmf_low_survival_function.index.values
-    Y_low = kmf_low_survival_function['Low-Risk Group'].values
+    Y_low = kmf_low_survival_function[f'Low Risk ({len(low_risk_ids)})'].values
 
     # Extract censor points
     censor_high = kmf_high.event_table[kmf_high.event_table['censored'] > 0].index.values
@@ -240,24 +246,31 @@ def surv_analysis(H, train_sample_ids, train_surv_data, test_sample_ids, test_su
     # -----------------------------------------------------------------------------------------------
     # Return
     # -----------------------------------------------------------------------------------------------
-    return {
-        "train_sample_ids": list(train_sample_ids),
-        "test_sample_ids": list(test_sample_ids),
-        "best_alpha": alpha,
-        "test_pred": list(Y_pred),
-        "test_prognostic_index": prognostic_index,
-        "test_low_risk_ids": list(low_risk_ids),
-        "test_high_risk_ids": list(high_risk_ids),
-        "kaplan_meier_X_high": list(X_high),
-        "kaplan_meier_Y_high": list(Y_high),
-        "kaplan_meier_censor_high": list(censor_high),
-        "kaplan_meier_censor_high_pred": list(censor_high_pred),
-        "kaplan_meier_X_low": list(X_low),
-        "kaplan_meier_Y_low": list(Y_low),
-        "kaplan_meier_censor_low": list(censor_low),
-        "kaplan_meier_censor_low_pred": list(censor_low_pred),
-        "p_value": float(results.p_value),
-        # "c_index": c_index,
-        # "integrated_brier_score": brier_score,
-        # "generalized_auc": generalized_auc,
-    }
+    if return_kmf_object:
+        return {
+            'kmf_high': kmf_high,
+            'kmf_low': kmf_low,
+            'logrank_result': results,
+        }
+    else:
+        return {
+            "train_sample_ids": list(train_sample_ids),
+            "test_sample_ids": list(test_sample_ids),
+            "best_alpha": alpha,
+            "test_pred": list(Y_pred),
+            "test_prognostic_index": prognostic_index,
+            "test_low_risk_ids": list(low_risk_ids),
+            "test_high_risk_ids": list(high_risk_ids),
+            "kaplan_meier_X_high": list(X_high),
+            "kaplan_meier_Y_high": list(Y_high),
+            "kaplan_meier_censor_high": list(censor_high),
+            "kaplan_meier_censor_high_pred": list(censor_high_pred),
+            "kaplan_meier_X_low": list(X_low),
+            "kaplan_meier_Y_low": list(Y_low),
+            "kaplan_meier_censor_low": list(censor_low),
+            "kaplan_meier_censor_low_pred": list(censor_low_pred),
+            "p_value": float(results.p_value),
+            # "c_index": c_index,
+            # "integrated_brier_score": brier_score,
+            # "generalized_auc": generalized_auc,
+        }

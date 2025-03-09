@@ -9,13 +9,14 @@
 
 # -----------------------------------------------------------------------------------------------
 # Author: Bùi Tiến Thành - Tien-Thanh Bui (@bu1th4nh)
-# Title: main_ablation_studies.py
-# Date: 2025/02/24 17:25:24
+# Title: main_1k_iteration_checkpoint.py
+# Date: 2025/03/08 22:31:41
 # Description: 
 # 
 # (c) 2025 bu1th4nh. All rights reserved. 
 # Written with dedication in the University of Central Florida, EPCOT and the Magic Kingdom.
 # -----------------------------------------------------------------------------------------------
+
 
 
 import os
@@ -122,50 +123,44 @@ if __name__ == '__main__':
         target_id = run_package['target_id']
         
         
-        # Modify alpha
-        half_before_alpha = best_config.split('-alpha-')[0]
-        half_after_alpha = best_config.split('-alpha-')[1].split('-', maxsplit = 1)[1]
+        for step in ['1000', '2000']:
+            # Prep result
+            iterations_abl_result = {
+                'dataset': dataset_id,
+                'target_id': target_id,
+                'run_name': f'best-at-{step}-iterations',
+                'config': f'{best_config}',
+                'classifier': classifier,
+                "summary": {},
+            }
 
-        max_alpha_cfg_id = f"{half_before_alpha}-alpha-10000-{half_after_alpha}"
-        min_alpha_cfg_id = f"{half_before_alpha}-alpha-0-{half_after_alpha}"
-
-        # Prep result
-        min_alpha_abl_result = {
-            'dataset': dataset_id,
-            'target_id': target_id,
-            'run_name': 'zero_alpha',
-            'config': min_alpha_cfg_id,
-            'classifier': classifier,
-            "summary": {},
-        }
-
-        H = run_cfg_data[min_alpha_cfg_id]
-        target = tar_data[target_id]
-        min_alpha_abl_result["Overall"] = evaluate_one_target(H, target, [classifier], target_id)[classifier]
+            H = pd.read_parquet(f'{RESULT_PRE_PATH}/{best_config}/step_0{step}/H.parquet', storage_options=storage_options)
+            target = tar_data[target_id]
+            iterations_abl_result["Overall"] = evaluate_one_target(H, target, [classifier], target_id)[classifier]
 
 
-        # Compute summary
-        metrics_list = ["AUROC", "ACC", "PRE", "REC", "F1", "MCC", "AUPRC"]
-        Belle = pd.DataFrame.from_dict(min_alpha_abl_result['Overall'], orient='index')[metrics_list]
-        for metric in metrics_list:
-            min_alpha_abl_result['summary'][f'Mean {metric}'] = float(Belle[metric].mean(skipna=True))
-            min_alpha_abl_result['summary'][f'Median {metric}'] = float(Belle[metric].median(skipna=True))
-            min_alpha_abl_result['summary'][f'Std {metric}'] = float(Belle[metric].std(skipna=True))
-            min_alpha_abl_result['summary'][f'Max {metric}'] = float(Belle[metric].max(skipna=True))
-            min_alpha_abl_result['summary'][f'Min {metric}'] = float(Belle[metric].min(skipna=True))
+            # Compute summary
+            metrics_list = ["AUROC", "ACC", "PRE", "REC", "F1", "MCC", "AUPRC"]
+            Belle = pd.DataFrame.from_dict(iterations_abl_result['Overall'], orient='index')[metrics_list]
+            for metric in metrics_list:
+                iterations_abl_result['summary'][f'Mean {metric}'] = float(Belle[metric].mean(skipna=True))
+                iterations_abl_result['summary'][f'Median {metric}'] = float(Belle[metric].median(skipna=True))
+                iterations_abl_result['summary'][f'Std {metric}'] = float(Belle[metric].std(skipna=True))
+                iterations_abl_result['summary'][f'Max {metric}'] = float(Belle[metric].max(skipna=True))
+                iterations_abl_result['summary'][f'Min {metric}'] = float(Belle[metric].min(skipna=True))
 
 
-        # Save to MLFlow
-        logging.info(f"========================================================\n\n\n\n")
-        logging.info(f"Summary for target {target_id}")
-        for key in min_alpha_abl_result['summary'].keys():
-            logging.info(f"{key}: {min_alpha_abl_result['summary'][key]}")
+            # Save to MLFlow
+            logging.info(f"========================================================\n\n\n\n")
+            logging.info(f"Summary for target {target_id}")
+            for key in iterations_abl_result['summary'].keys():
+                logging.info(f"{key}: {iterations_abl_result['summary'][key]}")
 
-            if 'Mean AUROC' in key: 
-                for method in classification_methods_list:
-                    mlflow.log_metric(f'{target_id} Overall AUC', min_alpha_abl_result['summary'][key])
-            if 'Mean MCC' in key: mlflow.log_metric(f'{target_id} Overall MCC', min_alpha_abl_result['summary'][key])
+                if 'Mean AUROC' in key: 
+                    for method in classification_methods_list:
+                        mlflow.log_metric(f'{target_id} Overall AUC', iterations_abl_result['summary'][key])
+                if 'Mean MCC' in key: mlflow.log_metric(f'{target_id} Overall MCC', iterations_abl_result['summary'][key])
 
 
-        # Save to MongoDB 
-        ablation_results.insert_one(min_alpha_abl_result)
+            # Save to MongoDB 
+            ablation_results.insert_one(iterations_abl_result)
