@@ -255,6 +255,8 @@ with tab2:
     target_list = col3.multiselect("Targets SA", ['Survival', 'Diseasefree'], placeholder="Select targets")
     target_list = [target.lower() for target in target_list]
 
+    only_show_best = st.checkbox("Only show best result", value=True)
+
     if len(target_list) == 0: st.stop()
 
     if st.button("Retrieve Surv. Result", use_container_width=True):
@@ -279,82 +281,62 @@ with tab2:
 
 
             for idx in data.index:
-                st.markdown(f'##### Best config from {data.loc[idx, "best_cfg_from"]} - {data.loc[idx, "best_cfg"]}')
-                st.markdown(f'- Prognostic Index: **{data.loc[idx, "test_prognostic_index"]}**\n- p-value: **{data.loc[idx, "p_value"]}**\n- Alpha: **{data.loc[idx, "best_alpha"]}**')
-
                 Ariel = data.loc[idx]
+                try:
+                    Jasmine = requests.post(
+                        url='http://localhost:6789/survival_pdf',
+                        json={
+                            'omics_mode':           omics_choice,
+                            'dataset_id':           dataset_choice,
+                            'surv_target':          target,
+                            'best_cfg':             Ariel['best_cfg'],
+                            'best_alpha':           Ariel['best_alpha'],
+                            'train_sample_ids':     list(Ariel['train_sample_ids']),
+                            'test_sample_ids':      list(Ariel['test_sample_ids']),
+                        },
+                        # timeout=15
+                    )
+                except requests.exceptions.RequestException as e:
+                    st.error(f"Error: {e}")
+                    continue
 
-                X_low = Ariel['kaplan_meier_X_low']
-                Y_low = Ariel['kaplan_meier_Y_low']
-                X_high = Ariel['kaplan_meier_X_high']
-                Y_high = Ariel['kaplan_meier_Y_high']
-                best_alpha = Ariel['best_alpha']
-                censor_low = Ariel['kaplan_meier_censor_low']
-                censor_high = Ariel['kaplan_meier_censor_high']
-                censor_low_pred = Ariel['kaplan_meier_censor_low_pred']
-                censor_high_pred = Ariel['kaplan_meier_censor_high_pred']
-                low_risk_ids = Ariel['test_low_risk_ids']
-                high_risk_ids = Ariel['test_high_risk_ids']
-                p_value = Ariel['p_value']
 
-
-                # # Plot survival functions using Plotly
-                # fig = px.line()
-
-                # fig.add_scatter(x=X_low, y=Y_low, mode='lines', name=f"low-risk ({len(low_risk_ids)})", line=dict(color='blue', dash='dash'))
-                # fig.add_scatter(x=X_high, y=Y_high, mode='lines', name=f"high-risk ({len(high_risk_ids)})", line=dict(color='red'))
-
-                # # Plot censor points
-                # fig.add_scatter(x=censor_high, y=censor_high_pred, mode='markers', name='Censor High', marker=dict(color='black', symbol='cross'))
-                # fig.add_scatter(x=censor_low, y=censor_low_pred, mode='markers', name='Censor Low', marker=dict(color='black', symbol='cross'))
-
-                # # Add labels and legend
-                # fig.update_layout(
-                #     title="Kaplan-Meier Curves",
-                #     xaxis_title="Time (Months)",
-                #     yaxis_title="Survival Probability",
-                #     legend_title="Risk Group"
-                # )
-
-                # # Add p-value in a box on the bottom left of the plot
-                # fig.add_annotation(
-                #     xref="paper", yref="paper",
-                #     x=0.03, y=0.05,
-                #     text=f'p-value: {p_value:.4f}',
-                #     showarrow=False,
-                #     bordercolor="black",
-                #     borderwidth=1,
-                #     borderpad=4,
-                #     bgcolor="white",
-                #     opacity=1
-                # )
-                # fig.update_yaxes(range=[-0.02, 1.02])
-                # fig.update_xaxes(range=[-0.02, 122]) # max 10 years
-
-                # st.plotly_chart(fig)
                 
-
-
-                Jasmine = requests.post(
-                    url='http://localhost:6789/survival_pdf',
-                    json={
-                        'omics_mode':           omics_choice,
-                        'dataset_id':           dataset_choice,
-                        'surv_target':          target,
-                        'best_cfg':             Ariel['best_cfg'],
-                        'best_alpha':           Ariel['best_alpha'],
-                        'train_sample_ids':     list(Ariel['train_sample_ids']),
-                        'test_sample_ids':      list(Ariel['test_sample_ids']),
-                    }
-                )
+                
                 if Jasmine.status_code == 200:
                     # st.success("PDF generated successfully!")
-                    pdf_data = Jasmine.content
+                    pdf_base64 = Jasmine.json()['kmf_plot']
+                    baseline_pvalue = Jasmine.json()['baseline_pvalue']
+                    ablated_pvalue = Jasmine.json()['ablated_pvalue']
+                    model_pvalue = Ariel["p_value"]
 
+                    verdict = None
+                    if model_pvalue < baseline_pvalue and model_pvalue < 0.05:
+                        if model_pvalue < 0.01 and baseline_pvalue > 0.1:
+                            verdict = '<span style="color:green"> **Recommended, best attempt**</span>.'
+                        elif baseline_pvalue < 0.05:
+                            verdict = '<span style="color:red"> **Not recommended**</span>.'
+                        else:
+                            verdict = '<span style="color:green"> **Choose**</span>.'
+                    else:
+                        verdict = '<span style="color:red"> **Not recommended**</span>.'
+
+
+                    if only_show_best and ('best' not in str(verdict)): continue
+
+
+                    st.markdown(f'### Best config from {data.loc[idx, "best_cfg_from"]} - {data.loc[idx, "best_cfg"]}')
+                    st.markdown(f'''
+                        - Prognostic Index: **{data.loc[idx, "test_prognostic_index"]:.06f}**
+                        - Alpha: **{Ariel["best_alpha"]:.06f}**
+                        - Model p-value: **{Ariel["p_value"]:.06f}**
+                        - Ablated p-value: **{ablated_pvalue:.06f}**
+                        - Baseline p-value: **{baseline_pvalue:.06f}**
+                        - Verdict: {verdict}
+                        - PDF preview:
+                    ''', unsafe_allow_html=True)
                     # Show this PDF in Streamlit
-                    st.markdown("##### PDF Preview")
-                    pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
-                    st.markdown(f'<iframe src="data:application/pdf;base64,{pdf_base64}" width="100%" height="600px"></iframe>', unsafe_allow_html=True)
+                    st.markdown(f'<iframe src="data:application/pdf;base64,{pdf_base64}" width="100%" height="475px"></iframe>', unsafe_allow_html=True)
                 else:
                     st.error("Failed to generate PDF.")
                     st.error(Jasmine.text)
