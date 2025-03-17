@@ -133,8 +133,11 @@ if __name__ == '__main__':
                 'classifier': classifier,
                 "summary": {},
             }
-
-            H = pd.read_parquet(f'{RESULT_PRE_PATH}/{best_config}/step_0{step}/H.parquet', storage_options=storage_options)
+            try:
+                H = pd.read_parquet(f'{RESULT_PRE_PATH}/{best_config}/checkpoints/step_0{step}/H.parquet', storage_options=storage_options)
+            except FileNotFoundError:
+                logging.error(f"Checkpoint {RESULT_PRE_PATH}/{best_config}/checkpoints/step_0{step}/H.parquet not found. Skipping...")
+                continue
             target = tar_data[target_id]
             iterations_abl_result["Overall"] = evaluate_one_target(H, target, [classifier], target_id)[classifier]
 
@@ -156,10 +159,10 @@ if __name__ == '__main__':
             for key in iterations_abl_result['summary'].keys():
                 logging.info(f"{key}: {iterations_abl_result['summary'][key]}")
 
-                if 'Mean AUROC' in key: 
-                    for method in classification_methods_list:
-                        mlflow.log_metric(f'{target_id} Overall AUC', iterations_abl_result['summary'][key])
-                if 'Mean MCC' in key: mlflow.log_metric(f'{target_id} Overall MCC', iterations_abl_result['summary'][key])
+                # if 'Mean AUROC' in key: 
+                #     for method in classification_methods_list:
+                #         mlflow.log_metric(f'{target_id} Overall AUC', iterations_abl_result['summary'][key])
+                # if 'Mean MCC' in key: mlflow.log_metric(f'{target_id} Overall MCC', iterations_abl_result['summary'][key])
 
 
             # Save to MongoDB 

@@ -106,6 +106,8 @@ with tab1:
     metrics = col3.multiselect("Metrics", ['ACC', 'PRE', 'REC', 'F1', 'MCC', 'AUROC', 'AUPRC'], default=['MCC', 'AUROC'])
     statistics = col4.multiselect("Statistics", ["Mean", "Median", "Std", "Min", "Max"], default=['Mean'], placeholder="Select statistic")
 
+    show_indiv_targets = st.checkbox("Show individual targets", value=False)
+
     if len(metrics) == 0: st.stop()
     if len(statistics) == 0: st.stop()
     if st.button("Retrieve Result", use_container_width=True):
@@ -133,6 +135,7 @@ with tab1:
                 if('mRNAmethDNA' in run_name or 'miRNAmethDNA' in run_name):
                     Ariel = run_name.split('_')
                     run_name = f"{Ariel[0]}_{Ariel[1]}+{Ariel[2]}"
+                    continue
 
 
 
@@ -165,7 +168,8 @@ with tab1:
                     finaldata.append(data_row)
 
 
-            ablation_data = mongo_db['ABLATION_STUDIES'].find(
+            db_id = 'SimilarSampleCrossOmicNMF_3Omics' if omics_choice == '3-omic' else 'SimilarSampleCrossOmicNMF'
+            ablation_data = mongo[db_id]['ABLATION_STUDIES'].find(
                 {
                     'dataset': dataset_choice,
                     'target_id': target,
@@ -174,6 +178,7 @@ with tab1:
             for idx, ablation in enumerate(ablation_data):
                 if ablation['run_name'] == 'zero_alpha': ablation_data[idx]['run_name'] = 'X-intMF ($\\alpha=0$)'
                 if ablation['run_name'] == 'max_alpha': ablation_data[idx]['run_name'] = 'X-intMF ($\\alpha=10000$)'
+                if 'best-at' in ablation['run_name']: ablation_data[idx]['run_name'] = f"X-intMF (@{ablation['run_name'].split('-')[-2]})"
                 if ablation['run_name'] == 'baseline': ablation_data[idx]['run_name'] = 'Baseline'
 
             for ablation in ablation_data:
@@ -220,7 +225,9 @@ with tab1:
                     for col in data_to_agg.columns:
                         agged_result[col] = data_to_agg[col]
             
-            # st.dataframe(data_to_agg, use_container_width=True)
+            if show_indiv_targets:
+                st.markdown(decode_target(target))
+                st.dataframe(data_to_agg, use_container_width=True)
 
 
         st.markdown("## Aggregated Result")
