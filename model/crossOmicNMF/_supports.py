@@ -13,7 +13,8 @@
 # Date: 2024/09/17 14:41:36
 # Description: This file contains the supporting functions for the main functions in the package
 # 
-# (c) bu1th4nh. All rights reserved
+# (c) 2025 bu1th4nh / UCF Computational Biology Lab. All rights reserved. 
+# Written with dedication in the University of Central Florida, EPCOT and the Magic Kingdom.
 # -----------------------------------------------------------------------------------------------
 
 
@@ -182,3 +183,55 @@ def convert_block_matrix_to_table_of_matrices(
             in torch.vsplit(block_matrix, size_list)
         ]
 
+
+
+# Content and code by bu1th4nh/UCF Compbio. Written with dedication in the University of Central Florida and the Magic Kingdom.
+# Powered, inspired and motivated by EDM, Counter-Strike and Disney Princesses. 
+# Image credit: https://emojicombos.com/little-mermaid-text-art
+#                                                                                                           
+#                                                          ⡀⣰    
+#                                                         ⣰⡿⠃    
+#                                                        ⣼⣿⣧⠏    
+#                                                       ⣰⣿⠟⠋     
+#                                                       ⣿⡿       
+#                                                      ⣸⣿⡇       
+#                                        ⣀⣴⣾⣿         ⢰⣿⣿⡇       
+#                                    ⢀⣠⣾⣿⣿⣿⣿⡏         ⣼⣿⣿        
+#                                   ⣠⣿⣿⣿⣿⣿⣿⣿⣤        ⢠⣿⣿⠇        
+#                                  ⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⡄    ⢀⣾⣿⣿         
+#                                 ⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠄  ⣤⣾⣿⡟⠁         
+#                                ⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏⠁⢀⣴⣾⣿⣿⠏           
+#                             ⣀⣀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⣴⣿⣿⣿⠿⠁            
+#                       ⣀⣤⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏              
+#                     ⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣄              
+#                    ⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡄            
+#                    ⣾⣿⣿⣿⠿⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇            
+#                   ⣸⣿⡿⠉⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠉⢿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁            
+#               ⠠⣤⣴⣾⡿⠋ ⣼⣿⣿⣿⢟⣿⣿⠏⢰⣿⡿⠟⢻⣿⣿⡿   ⠈⢿⣿⣿⣿⣿⣿⣿⠏              
+#                     ⣼⣿⣿⡟⠁⣸⡿⠁ ⠘⠋⣀⣴⣿⣿⠟    ⢀⣼⣿⣿⣿⣿⣿⠃               
+#                  ⢠⣴⣾⣿⠿⠋ ⠐⠋   ⢀⣾⣿⣿⡿⠋   ⣠⣴⣾⣿⣿⣿⣿⣿⠃                
+#                            ⢀⣴⣿⡿⠛⠉   ⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿                 
+#                          ⢠⣶⡿⠋⠁    ⢠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡆                
+#                         ⣠⣿⣿⡇     ⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇                
+#                       ⠴⣿⣿⠋⡿⠁    ⢀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁                
+#                        ⠿⠏       ⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏                 
+#                                ⢀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟                  
+#                                ⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟                   
+#                               ⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠋                    
+#                               ⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁                     
+#                             ⢀⣾⣿⣿⣿⣿⣿⣿⣿⡿⠟                        
+#                           ⣀⣴⣿⣿⣿⣿⣿⣿⣿⠿⠋                          
+#                        ⣀⣤⣾⣿⣿⣿⣿⣿⡿⠟⠋                             
+#               ⣀⣀⣀⣠⣤⣤⣤⣶⣿⣿⣿⣿⡿⠿⠛⠋⠁                                
+#         ⢀⣠⣶⣶⣿⣿⣿⣿⣿⣿⣿⣿⠟⠛⠋⠉⠉                                      
+#       ⢀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠁                                           
+#      ⣠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣇                                            
+#     ⢠⣿⣿⣿⣿⣿⣿⡿⠟⠋⢠⣿⣿⣿⣿⣧                                           
+#     ⣼⣿⡿⠟⠋⠉    ⠸⣿⣿⣿⣿⣿⣧                                          
+#     ⣿⡟         ⣿⣿⣿⣿⣿⣿                                          
+#     ⠸⠇         ⣿⣿⣿⣿⣿⣿                                          
+#                ⢸⣿⣿⣿⣿⡟                                          
+#                ⣼⣿⣿⣿⠟                                           
+#               ⢀⣿⡿⠛⠁                                            
+#                                                                
+                                                                                                                                       

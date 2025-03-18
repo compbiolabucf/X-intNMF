@@ -440,7 +440,7 @@ Returns:
     
 
 
-# Content and code by bu1th4nh. Written with dedication in the University of Central Florida and the Magic Kingdom.
+# Content and code by bu1th4nh/UCF Compbio. Written with dedication in the University of Central Florida and the Magic Kingdom.
 # Powered, inspired and motivated by EDM, Counter-Strike and Disney Princesses. 
 # Image credit: https://emojicombos.com/little-mermaid-text-art
 #                                                                                                           

@@ -13,7 +13,8 @@
 # Date: 2024/09/17 14:47:01
 # Description: 
 # 
-# (c) bu1th4nh. All rights reserved
+# (c) 2025 bu1th4nh / UCF Computational Biology Lab. All rights reserved. 
+# Written with dedication in the University of Central Florida, EPCOT and the Magic Kingdom.
 # -----------------------------------------------------------------------------------------------
 
 import os
@@ -412,8 +413,7 @@ def LassoSolveH(
    
 
 
-
-# Content and code by bu1th4nh. Written with dedication in the University of Central Florida and the Magic Kingdom.
+# Content and code by bu1th4nh/UCF Compbio. Written with dedication in the University of Central Florida and the Magic Kingdom.
 # Powered, inspired and motivated by EDM, Counter-Strike and Disney Princesses. 
 # Image credit: https://emojicombos.com/little-mermaid-text-art
 #                                                                                                           
@@ -462,3 +462,4 @@ def LassoSolveH(
 #                ⣼⣿⣿⣿⠟                                           
 #               ⢀⣿⡿⠛⠁                                            
 #                                                                
+                                                                                                                                       
