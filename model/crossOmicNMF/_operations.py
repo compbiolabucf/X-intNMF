@@ -31,12 +31,6 @@ from sklearn.linear_model import Lasso, LassoCV, MultiTaskLasso, MultiTaskLassoC
 import psutil
 
 
-from ._math import objective_function
-from ._math import update
-
-from ._math_cupy import cupy_objective_function
-from ._math_cupy import cupy_update
-
 def ComposeRawBaseline(self):
     """
         Compose the raw baseline, only concatenate the omic layers matrix X into a single matrix. Index and column names are preserved
@@ -255,11 +249,11 @@ def InitializeWd(
             A list of W matrices of shape (m_d, k)
     """
 
-    while ((cpu_high := psutil.cpu_percent()) > 50): 
-        wait = random.randint(10, 20)
-        logging.warning(f"CPU usage is too high ({cpu_high}%), waiting for {wait} seconds...")
-        time.sleep(wait)
-    logging.info("CPU clear. Initializing W matrices...")
+    # while ((cpu_high := psutil.cpu_percent()) > 50): 
+    #     wait = random.randint(10, 20)
+    #     logging.warning(f"CPU usage is too high ({cpu_high}%), waiting for {wait} seconds...")
+    #     time.sleep(wait)
+    # logging.info("CPU clear. Initializing W matrices...")
 
     # Compute
     Wds = []
@@ -337,12 +331,12 @@ def LassoSolveH(
     # Initialize H
     H_coeffs = []
 
-    # Check CPU usage before proceed
-    while ((cpu_high := psutil.cpu_percent()) > 50): 
-        wait = random.randint(10, 20)
-        logging.warning(f"CPU usage is too high ({cpu_high}%), waiting for {wait} seconds...")
-        time.sleep(wait)
-    logging.info("CPU clear. Initializing W matrices...")
+    # # Check CPU usage before proceed
+    # while ((cpu_high := psutil.cpu_percent()) > 50): 
+    #     wait = random.randint(10, 20)
+    #     logging.warning(f"CPU usage is too high ({cpu_high}%), waiting for {wait} seconds...")
+    #     time.sleep(wait)
+    # logging.info("CPU clear. Initializing W matrices...")
     
 
     # Solve individual column of H 

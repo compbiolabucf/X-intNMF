@@ -18,7 +18,6 @@
 
 
 import logging
-import cupy as cp
 import numpy as np
 import pandas as pd
 from typing import List, Tuple, Union, Literal, Any, Callable, Dict
@@ -169,6 +168,7 @@ def convert_block_matrix_to_table_of_matrices(
             in np.vsplit(block_matrix, size_list)
         ]
     elif flavor == "cupy":
+        import cupy as cp
         return [
             list(cp.hsplit(horizontal_block, size_list))
             for horizontal_block 

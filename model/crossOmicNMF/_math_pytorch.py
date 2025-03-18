@@ -43,6 +43,7 @@ def torch_objective_function(
 
     iteration:          int,
     device:             str,
+    mlflow_enable:      bool = False
 ) -> np.float64:
 
     # Calculate the reconstruction error
@@ -77,11 +78,11 @@ def torch_objective_function(
     f = 1/2 * reconstruction_error + graph_regularization + sparsity_control_for_Ws + sparsity_control_for_H
 
 
-
-    mlflow.log_metric("Reconstruction error", reconstruction_error, step=iteration)
-    mlflow.log_metric("Graph regularization", graph_regularization, step=iteration)
-    mlflow.log_metric("Sparsity control for Ws", sparsity_control_for_Ws, step=iteration)
-    mlflow.log_metric("Sparsity control for H", sparsity_control_for_H, step=iteration)
+    if mlflow_enable:
+        mlflow.log_metric("Reconstruction error", reconstruction_error, step=iteration)
+        mlflow.log_metric("Graph regularization", graph_regularization, step=iteration)
+        mlflow.log_metric("Sparsity control for Ws", sparsity_control_for_Ws, step=iteration)
+        mlflow.log_metric("Sparsity control for H", sparsity_control_for_H, step=iteration)
 
     return f
 
@@ -128,7 +129,7 @@ def IterativeSolveWdsAndH_PyTorch(
     initialized_H:              Union[np.ndarray], 
     additional_tasks:           Union[None, Callable, List[Callable]] = None,
     additional_tasks_interval:  int = 50,
-) -> List[np.ndarray]:
+) -> Tuple[List[np.ndarray], np.ndarray]:
     """
         Iteratively solve the W matrices with fixed H matrix (6)
         
@@ -145,8 +146,8 @@ def IterativeSolveWdsAndH_PyTorch(
 
         Output
         ------
-        W: List[np.ndarray]
-            A list of W matrices of shape (m_d, k)
+        Tuple[List[np.ndarray], np.ndarray]
+            A tuple of W matrices and H matrix. W matrices are of shape (m_d, k) and H matrix is of shape (k, N), denotes omics factors and sample factor respectively.
     """
 
     # Construct the omic indices for matrix splitting
@@ -204,8 +205,9 @@ def IterativeSolveWdsAndH_PyTorch(
     Ws = initialized_Wds
     H = initialized_H
     iteration = 0
-    curr_obj = torch_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration, self.device)
-    mlflow.log_metric("objective_function", curr_obj, step=iteration)
+    curr_obj = torch_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration, self.device, self.mlflow_enable)
+    if self.mlflow_enable:
+        mlflow.log_metric("objective_function", curr_obj, step=iteration)
 
     if additional_tasks is not None: 
         if callable(additional_tasks): 
@@ -219,16 +221,17 @@ def IterativeSolveWdsAndH_PyTorch(
         new_Ws, new_H = torch_update(Xd, Ws, H, E, degree_block, alpha, betas, gammas)
 
         # Log the delta of Ws and H
-        for W_idx, W in enumerate(new_Ws):
-            mlflow.log_metric(f"W{W_idx}_delta", torch.norm(new_Ws[W_idx] - Ws[W_idx], p="fro").detach().cpu().numpy(), step=iteration)
-        mlflow.log_metric(f"H_delta", torch.norm(new_H - H, p="fro").detach().cpu().numpy(), step=iteration)
+        if self.mlflow_enable:
+            for W_idx, W in enumerate(new_Ws):
+                mlflow.log_metric(f"W{W_idx}_delta", torch.norm(new_Ws[W_idx] - Ws[W_idx], p="fro").detach().cpu().numpy(), step=iteration)
+            mlflow.log_metric(f"H_delta", torch.norm(new_H - H, p="fro").detach().cpu().numpy(), step=iteration)
 
         # Update the Ws and H
         Ws = new_Ws
         H = new_H
 
         # Compute the objective function
-        next_obj = torch_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration, self.device)
+        next_obj = torch_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration, self.device, self.mlflow_enable)
         delta = next_obj - curr_obj
         logging.info(f"Iteration {iteration}: Objective function = {next_obj}, delta = {delta}")
 
@@ -241,16 +244,17 @@ def IterativeSolveWdsAndH_PyTorch(
 
 
         # Log the objective function and delta to MLFlow
-        mlflow.log_metric("objective_function", next_obj, step=iteration)
-        mlflow.log_metric("delta", np.abs(delta), step=iteration)
+        if self.mlflow_enable:
+            mlflow.log_metric("objective_function", next_obj, step=iteration)
+            mlflow.log_metric("delta", np.abs(delta), step=iteration)
 
         # Break condition
         if np.abs(delta) < self.tol or iteration >= self.max_iter:
             break
         
         curr_obj = next_obj
-
-    mlflow.log_metric("Iterations to converge", iteration)
+    if self.mlflow_enable:
+        mlflow.log_metric("Iterations to converge", iteration)
 
     Ws = [W.detach().cpu().numpy() for W in Ws]
     H = H.detach().cpu().numpy()

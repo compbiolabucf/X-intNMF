@@ -40,7 +40,8 @@ def objective_function(
     betas:              Union[np.ndarray, List[float]],
     gammas:             Union[np.ndarray, List[float]],
 
-    iteration:          int
+    iteration:          int,
+    mlflow_enable:      bool = False
 ):
     X_concatted = np.concatenate(Xs, axis=0)
     W_concatted = np.concatenate(Ws, axis=0)
@@ -88,10 +89,11 @@ def objective_function(
     # logging.info(f"Sparsity control for H: {sparsity_control_for_H}")
     # logging.info(f"Objective function value: {f}")
 
-    mlflow.log_metric("Reconstruction error", reconstruction_error, step=iteration)
-    mlflow.log_metric("Graph regularization", graph_regularization, step=iteration)
-    mlflow.log_metric("Sparsity control for Ws", sparsity_control_for_Ws, step=iteration)
-    mlflow.log_metric("Sparsity control for H", sparsity_control_for_H, step=iteration)
+    if mlflow_enable:
+        mlflow.log_metric("Reconstruction error", reconstruction_error, step=iteration)
+        mlflow.log_metric("Graph regularization", graph_regularization, step=iteration)
+        mlflow.log_metric("Sparsity control for Ws", sparsity_control_for_Ws, step=iteration)
+        mlflow.log_metric("Sparsity control for H", sparsity_control_for_H, step=iteration)
 
     return f
 
@@ -197,8 +199,8 @@ def IterativeSolveWdsAndH(
     Ws = initialized_Wds
     H = initialized_H
     iteration = 0
-    curr_obj = objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas, iteration)
-    mlflow.log_metric("objective_function", curr_obj, step=iteration)
+    curr_obj = objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas, iteration, self.mlflow_enable)
+    if self.mlflow_enable: mlflow.log_metric("objective_function", curr_obj, step=iteration)
 
     if additional_tasks is not None: 
         if callable(additional_tasks): 
@@ -211,16 +213,17 @@ def IterativeSolveWdsAndH(
         new_Ws, new_H = update(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas)
 
         # Log the delta of Ws and H
-        for W_idx, W in enumerate(new_Ws):
-            mlflow.log_metric(f"W{W_idx}_delta", np.linalg.norm(W - Ws[W_idx], 'fro'), step=iteration)
-        mlflow.log_metric("H_delta", np.linalg.norm(new_H - H, 'fro'), step=iteration)
+        if self.mlflow_enable:
+            for W_idx, W in enumerate(new_Ws):
+                mlflow.log_metric(f"W{W_idx}_delta", np.linalg.norm(W - Ws[W_idx], 'fro'), step=iteration)
+            mlflow.log_metric("H_delta", np.linalg.norm(new_H - H, 'fro'), step=iteration)
 
         # Update the Ws and H
         Ws = new_Ws
         H = new_H
 
         # Compute the objective function
-        next_obj = objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas, iteration)
+        next_obj = objective_function(self.Xd, Ws, H, E, degree_block, self.alpha, self.betas, self.gammas, iteration, self.mlflow_enable)
         delta = next_obj - curr_obj
         logging.info(f"Iteration {iteration}: Objective function = {next_obj}, delta = {delta}")
 
@@ -232,16 +235,17 @@ def IterativeSolveWdsAndH(
                 for task in additional_tasks: task(Ws, H, iteration)
 
         # Log the objective function and delta to MLFlow
-        mlflow.log_metric("objective_function", next_obj, step=iteration)
-        mlflow.log_metric("delta", np.abs(delta), step=iteration)
+        if self.mlflow_enable:
+            mlflow.log_metric("objective_function", next_obj, step=iteration)
+            mlflow.log_metric("delta", np.abs(delta), step=iteration)
 
         # Break condition
         if np.abs(delta) < self.tol or iteration >= self.max_iter:
             break
         
         curr_obj = next_obj
-
-    mlflow.log_metric("Iterations to converge", iteration)
+    if self.mlflow_enable:
+        mlflow.log_metric("Iterations to converge", iteration)
 
     return Ws, H
    

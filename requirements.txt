@@ -18,3 +18,4 @@ s3fs
 mlflow
 cupy-cuda12x
 pymongo
+torch

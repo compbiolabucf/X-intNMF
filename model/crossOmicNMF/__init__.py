@@ -8,12 +8,13 @@
 
 
 # -----------------------------------------------------------------------------------------------
-# Author: Bùi Tiến Thành (@bu1th4nh)
-# Title: main.py
+# Author: Bùi Tiến Thành - Tien-Thanh Bui (@bu1th4nh)
+# Title: __init__.py
 # Date: 2024/09/12 15:54:51
 # Description: Main script for running the CrossOmicDataInt package
 # 
-# (c) bu1th4nh. All rights reserved
+# (c) 2025 bu1th4nh / UCF Computational Biology Lab. All rights reserved. 
+# Written with dedication in the University of Central Florida, EPCOT and the Magic Kingdom.
 # -----------------------------------------------------------------------------------------------
 
 from typing import List, Tuple, Union, Literal, Any, Callable, Dict
@@ -25,45 +26,49 @@ import logging
 import mlflow
 
 
-from ._math import objective_function
-from ._math import update
 
-# @jitclass
-class SimilarSampleCrossOmicNMF:
+class XIntNMF:
     """
-        Class to solve the cross-omics, multi-omics layers integration problem 
+Class to solve the cross-omics, multi-omics layers integration problem 
 
-        Data:
-        - `omics_layers`: List[np.ndarray]
-            A list of omics layers matrices of shape (m_d, N). Now denotes as X_d
-        - `cross_omics_interaction`: Dict[Tuple[int, int], np.ndarray]
-            A dictionary of cross-omics interaction matrices of shape (m_p, m_q) with key as (p, q) where p, q are the interaction matrix of p-th and q-th omics layers
-        - `internal_interaction`: List[np.ndarray]
-            A list of on-diagonal interaction matrices of shape (m_d, m_d)
-        
+Data:
+------
+- `omics_layers`: List[np.ndarray]
+    A list of omics layers matrices of shape (m_d, N). Now denotes as X_d
+- `cross_omics_interaction`: Dict[Tuple[int, int], np.ndarray]
+    A dictionary of cross-omics interaction matrices of shape (m_p, m_q) with key as (p, q) where p, q are the interaction matrix of p-th and q-th omics layers
+- `internal_interaction`: List[np.ndarray]
+    A list of on-diagonal interaction matrices of shape (m_d, m_d)
 
-        Hyperparameters:
-        - `num_clusters`: int
-            The number of latent variables or clusters to initialize the W matrices. Now denotes as k
-        - `cross_omics_alpha`: float
-            The hyperparameter to control the graph regularization term. Now denotes as alpha
-        - `sparsity_W_control_betas`: Union[float, List[float]]
-            The hyperparameter to control the sparsity of W matrices. If a single value is passed, the same value will be used for all W matrices. If a list is passed, the value will be used for each W matrix. Now denotes as betas
-        - `lasso_control_gammas`: Union[np.array, List, float]
-            The L1 regularization parameter for each sample. If a single value is passed, the same value will be used for all samples. If a list is passed, the value will be used for each sample. Now denotes as gammas
-        
-            
-        Control parameters:
-        - `similarity_method`: Union[Callable, None]
-            The similarity metric to calculate the similarity matrix. If None, the default metric is Pearson correlation coefficient. The method should take the omics layers matrix as input and return the similarity matrix of shape (feature, feature), or (m, m)
-        - `max_iter`: int
-            The maximum number of iterations to run the algorithm
-        - `tol`: float
-            The tolerance to stop the algorithm
-        - `verbose`: bool
-            Whether to print the debug information or not
-        - `gpu`: Union[int, None]
-            The GPU device to use. Default is None, which means using CPU
+
+Hyperparameters:
+------
+- `num_clusters`: int
+    The number of latent variables or clusters to initialize the W matrices. Now denotes as k
+- `cross_omics_alpha`: float
+    The hyperparameter to control the graph regularization term. Now denotes as alpha
+- `sparsity_W_control_betas`: Union[float, List[float]]
+    The hyperparameter to control the sparsity of W matrices. If a single value is passed, the same value will be used for all W matrices. If a list is passed, the value will be used for each W matrix. Now denotes as betas
+- `lasso_control_gammas`: Union[np.array, List, float]
+    The L1 regularization parameter for each sample. If a single value is passed, the same value will be used for all samples. If a list is passed, the value will be used for each sample. Now denotes as gammas
+
+    
+Control parameters:
+------
+- `similarity_method`: Union[Callable, None]
+    The similarity metric to calculate the similarity matrix. If None, the default metric is Pearson correlation coefficient. The method should take the omics layers matrix as input and return the similarity matrix of shape (feature, feature), or (m, m)
+- `max_iter`: int
+    The maximum number of iterations to run the algorithm
+- `tol`: float
+    The tolerance to stop the algorithm
+- `verbose`: bool
+    Whether to print the debug information or not
+- `gpu`: Union[int, None, str]
+    The GPU device to use. Default is None, which means using CPU
+- `backend`: Literal['numpy', 'cupy', 'pytorch']
+    The backend for matrix computation. Default is numpy
+- `mlflow_enable`: bool
+    Whether to enable MLFlow logging or not. Default is False
     """
 
 
@@ -84,6 +89,8 @@ class SimilarSampleCrossOmicNMF:
     verbose: bool                                               # Whether to print the debug information or not
     similarity_method: Union[Callable, None]                    # The similarity metric to calculate the similarity matrix. If None, the default metric is Pearson correlation coefficient. The method should take the omics layers matrix as input and return the similarity matrix of shape (feature, feature), or (m, m)
     device: Union[str, None] = None                             # Device to use. Default is None
+    backend: Literal['numpy', 'cupy', 'pytorch'] = 'numpy'      # Backend for matrix computation. Default is numpy
+    mlflow_enable: bool                                         # Whether to enable MLFlow logging or not
 
     # Internal variables, inferred from input
     D: int                                                      # Number of omics layers
@@ -111,7 +118,41 @@ class SimilarSampleCrossOmicNMF:
         tol: float,                                                     # Tolerance to stop the algorithm
         verbose: bool = False,                                          # Whether to print the debug information or not 
         gpu: Union[int, None] = None,                                   # GPU device to use. Default is None
+        backend: Literal['numpy', 'cupy', 'pytorch'] = 'numpy',         # Backend for matrix computation. Default is numpy
+        mlflow_enable: bool = False,                                    # Whether to enable MLFlow logging or not
     ):
+        """
+Initialize the XIntNMF class with the given parameters.
+
+Parameters:
+----------
+- `omics_layers` (`List[np.ndarray]`): 
+    Omics layers.
+- `cross_omics_interaction` (`Dict[Tuple[int, int], np.ndarray]`): 
+    Off-diagonal/Cross-omics interaction.
+- `k` (`int`): 
+    Number of latent variables or clusters.
+- `alpha` (`float`): 
+    Graph regularization term control.
+- `betas` (`Union[np.array, List, float]`): 
+    Sparsity control for W matrices. The sample will be automatically broadcasted to all if a single value is passed.
+- `gammas` (`Union[np.array, List, float]`): 
+    L1 regularization & sparsity parameter for each sample. The sample will be automatically broadcasted to all if a single value is passed.
+- `max_iter` (`int`): 
+    Maximum number of iterations.
+- `tol` (`float`): 
+    Tolerance to stop the algorithm.
+- `verbose` (`bool`, optional): 
+    Whether to print the debug information or not. Default is False.
+- `gpu` (`Union[int, None]`, optional): 
+    GPU device to use. Default is None.
+- `backend` (`Literal['numpy', 'cupy', 'pytorch']`, optional): 
+    Backend for matrix computation. Default is numpy.
+- `mlflow_enable` (`bool`, optional): 
+    Whether to enable MLFlow logging or not. Default is False.
+        """
+
+
         # Direct input
         self.Xd_source = omics_layers
         self.cross_omics_interaction = cross_omics_interaction
@@ -122,7 +163,9 @@ class SimilarSampleCrossOmicNMF:
         self.max_iter = max_iter
         self.tol = tol
         self.verbose = verbose
-        self.device = f'cuda:{gpu}' if gpu is not None else 'cpu'
+        self.backend = backend
+        self.device = (f'cuda:{gpu}' if isinstance(gpu, int) else gpu) if gpu is not None else 'cpu'
+        self.mlflow_enable = mlflow_enable
 
 
         # Inferred from input
@@ -142,18 +185,32 @@ class SimilarSampleCrossOmicNMF:
         # Debug: Print the log
         logging.info(f"Initialized CrossOmicDataInt with {self.D} omics layers, {self.N} samples, {self.M} features, {self.k} clusters, alpha={alpha}, betas={betas}, gammas={gammas}, max_iter={self.max_iter}, tol={self.tol}")
 
-        # MLFlow logging
-        mlflow.log_param("alpha", alpha)
-        mlflow.log_param("betas", betas)
-        mlflow.log_param("gammas", gammas)
-        mlflow.log_param("max_iter", self.max_iter)
-        mlflow.log_param("tol", self.tol)
-        mlflow.log_param("verbose", self.verbose)
 
-        mlflow.log_param("Number of omics layers", self.D)
-        mlflow.log_param("Sample size", self.N)
-        mlflow.log_param("Omics layers feature size", self.m)
-        mlflow.log_param("Latent size", self.k)
+        # Backend selection
+        if self.backend == 'numpy':
+            from ._math import IterativeSolveWdsAndH
+            self.solver = IterativeSolveWdsAndH
+        elif self.backend == 'cupy':
+            from ._math_cupy import IterativeSolveWdsAndH_CuPy
+            self.solver = IterativeSolveWdsAndH_CuPy
+        elif self.backend == 'pytorch':
+            from ._math_pytorch import IterativeSolveWdsAndH_PyTorch
+            self.solver = IterativeSolveWdsAndH_PyTorch
+            
+
+        # MLFlow logging
+        if self.mlflow_enable:
+            mlflow.log_param("alpha", alpha)
+            mlflow.log_param("betas", betas)
+            mlflow.log_param("gammas", gammas)
+            mlflow.log_param("max_iter", self.max_iter)
+            mlflow.log_param("tol", self.tol)
+            mlflow.log_param("verbose", self.verbose)
+
+            mlflow.log_param("Number of omics layers", self.D)
+            mlflow.log_param("Sample size", self.N)
+            mlflow.log_param("Omics layers feature size", self.m)
+            mlflow.log_param("Latent size", self.k)
 
 
 
@@ -180,9 +237,6 @@ class SimilarSampleCrossOmicNMF:
     from ._operations import InitializeBalancedCutoff
     from ._operations import InitializeWd
     from ._operations import LassoSolveH
-    from ._math import IterativeSolveWdsAndH
-    from ._math_cupy import IterativeSolveWdsAndH_CuPy
-    from ._math_pytorch import IterativeSolveWdsAndH_PyTorch
 
 
     from ._debug import PrenormalizeDebug
@@ -220,12 +274,46 @@ class SimilarSampleCrossOmicNMF:
         # Test AUC
         additional_tasks: Union[Callable, None] = None,
         additional_tasks_interval: int = 50,
-
-
     ) -> Tuple[List[np.ndarray], np.ndarray]:
         """
-            Solve the cross-omics, multi-omics layers integration problem
+Solve the cross-omics, multi-omics layers integration problem
+
+Parameters:
+---------
+- `pre_normalize` (`bool`): 
+    Whether to pre-normalize the data. Default is True.
+- `pre_normalize_method` (`Union[Callable, Literal]`): 
+    Method for pre-normalization. Default is "max".
+- `pre_normalize_orientation` (`Literal`): 
+    Orientation for pre-normalization. Default is "row".
+- `internal_interaction_init_methods` (`Union[Callable, None]`): 
+    Methods to initialize interaction matrices. Default is None.
+- `internal_interaction_get_abs_value` (`bool`): 
+    Whether to get absolute value for interaction matrices. Default is True.
+- `balancing_cutoff_density_measure` (`Union[Callable, Literal]`): 
+    Density measure for balancing cutoff. Default is "density".
+- `balancing_cutoff_compare_with` (`Literal`): 
+    Comparison method for balancing cutoff. Default is "off_diag".
+- `balancing_cutoff_density_agg_method` (`Literal`): 
+    Aggregation method for density in balancing cutoff. Default is "mean".
+- `initialize_Wd_method` (`Union[Callable, Literal]`): 
+    Method to initialize Wd matrices. Default is "nmf".
+- `use_cross_validation` (`bool`): 
+    Whether to use cross-validation for Lasso. Default is True.
+- `run_mode` (`Literal`): 
+    Mode to run the solver. Default is 'full'.
+- `additional_tasks` (`Union[Callable, None]`): 
+    Additional tasks to perform during solving. Default is None.
+- `additional_tasks_interval` (`int`): 
+    Interval for additional tasks. Default is 50.
+
+Returns:
+-------
+- `Tuple[List[np.ndarray], np.ndarray]`: The solved W matrices and H matrix. W matrices are of shape (m_d, k) and H matrix is of shape (k, N), denotes omics factors and sample factor respectively.
         """
+
+
+
         self.Xd = self.Xd_source
         # -----------------------------------------------------------------------------------------------
         # Compose raw baseline if needed
@@ -291,45 +379,37 @@ class SimilarSampleCrossOmicNMF:
 
 
 
+        logging.warning("[4/6] Initializing W matrices...")
 
-
-        logging.info("Acquiring lock...")
-        lock = FileLock("/tmp/SimilarSampleCrossOmicNMF.lock")
-
-        with lock:
-            logging.warning("Acquired lock")
-            logging.warning("[4/6] Initializing W matrices...")
-
-            
-            # -----------------------------------------------------------------------------------------------
-            # 4.Initialize W matrices - Required lock. If two processes are running at the same time will risk freezing
-            # -----------------------------------------------------------------------------------------------
-            Wds = self.InitializeWd(
-                method = initialize_Wd_method,
-                silence_verbose_override = True
-            )
-            for i, Wd in enumerate(Wds):
-                logging.warning(f"Initialized Wd[{i}] with shape {Wd.shape}")
-                # logging.warning(Wd)
-            logging.warning("Initialization of W matrices completed")
+        
+        # -----------------------------------------------------------------------------------------------
+        # 4.Initialize W matrices - Required lock. If two processes are running at the same time will risk freezing
+        # -----------------------------------------------------------------------------------------------
+        Wds = self.InitializeWd(
+            method = initialize_Wd_method,
+            silence_verbose_override = True
+        )
+        for i, Wd in enumerate(Wds):
+            logging.warning(f"Initialized Wd[{i}] with shape {Wd.shape}")
+            # logging.warning(Wd)
+        logging.warning("Initialization of W matrices completed")
 
 
 
 
 
 
-            # -----------------------------------------------------------------------------------------------
-            # 5.Solve the H matrix using Lasso - Required lock
-            # -----------------------------------------------------------------------------------------------
-            logging.warning("[5/6] Solving the H matrix using Lasso...")
-            H = self.LassoSolveH(
-                initialized_Wds = Wds,
-                use_cross_validation = use_cross_validation,
-            )
-            logging.warning(f"Solved H with shape {H.shape}")
-            logging.warning("Solving H matrix completed")
+        # -----------------------------------------------------------------------------------------------
+        # 5.Solve the H matrix using Lasso - Required lock
+        # -----------------------------------------------------------------------------------------------
+        logging.warning("[5/6] Initializing H using Lasso...")
+        H = self.LassoSolveH(
+            initialized_Wds = Wds,
+            use_cross_validation = use_cross_validation,
+        )
+        logging.warning(f"Initialized H completed with shape {H.shape}")
 
-            logging.warning("Lock released")
+        # logging.warning("Lock released")
 
 
 
@@ -342,8 +422,10 @@ class SimilarSampleCrossOmicNMF:
             return Wds, H
 
         
-        logging.warning("[6/6] Iteratively solving the W matrices...")
-        res_Wds, res_H = self.IterativeSolveWdsAndH_PyTorch(
+        logging.warning("[6/6] Iteratively solving H and Ws...")
+        
+        res_Wds, res_H = self.solver(
+            self,
             initialized_Wds = Wds,
             initialized_H = H,
             additional_tasks = additional_tasks,

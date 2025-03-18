@@ -41,7 +41,8 @@ def cupy_objective_function(
     betas:              Union[cp.ndarray, List[float]],
     gammas:             Union[cp.ndarray, List[float]],
 
-    iteration:          int
+    iteration:          int,
+    mlflow_enable:      bool = False
 ):
 
     # Calculate the reconstruction error
@@ -68,11 +69,11 @@ def cupy_objective_function(
     f = 1/2 * reconstruction_error + graph_regularization + sparsity_control_for_Ws + sparsity_control_for_H
 
 
-
-    mlflow.log_metric("Reconstruction error", reconstruction_error, step=iteration)
-    mlflow.log_metric("Graph regularization", graph_regularization, step=iteration)
-    mlflow.log_metric("Sparsity control for Ws", sparsity_control_for_Ws, step=iteration)
-    mlflow.log_metric("Sparsity control for H", sparsity_control_for_H, step=iteration)
+    if mlflow_enable:
+        mlflow.log_metric("Reconstruction error", reconstruction_error, step=iteration)
+        mlflow.log_metric("Graph regularization", graph_regularization, step=iteration)
+        mlflow.log_metric("Sparsity control for Ws", sparsity_control_for_Ws, step=iteration)
+        mlflow.log_metric("Sparsity control for H", sparsity_control_for_H, step=iteration)
 
     return f
 
@@ -187,8 +188,9 @@ def IterativeSolveWdsAndH_CuPy(
     Ws = initialized_Wds
     H = initialized_H
     iteration = 0
-    curr_obj = cupy_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration)
-    mlflow.log_metric("objective_function", curr_obj, step=iteration)
+    curr_obj = cupy_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration, self.mlflow_enable)
+    if self.mlflow_enable:
+        mlflow.log_metric("objective_function", curr_obj, step=iteration)
 
     if additional_tasks is not None: 
         if callable(additional_tasks): 
@@ -201,16 +203,17 @@ def IterativeSolveWdsAndH_CuPy(
         new_Ws, new_H = cupy_update(Xd, Ws, H, E, degree_block, alpha, betas, gammas)
 
         # Log the delta of Ws and H
-        for W_idx, W in enumerate(new_Ws):
-            mlflow.log_metric(f"W{W_idx}_delta", cp.linalg.norm(W - Ws[W_idx], 'fro'), step=iteration)
-        mlflow.log_metric("H_delta", cp.linalg.norm(new_H - H, 'fro'), step=iteration)
+        if self.mlflow_enable:
+            for W_idx, W in enumerate(new_Ws):
+                mlflow.log_metric(f"W{W_idx}_delta", cp.linalg.norm(W - Ws[W_idx], 'fro'), step=iteration)
+            mlflow.log_metric("H_delta", cp.linalg.norm(new_H - H, 'fro'), step=iteration)
 
         # Update the Ws and H
         Ws = new_Ws
         H = new_H
 
         # Compute the objective function
-        next_obj = cupy_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration)
+        next_obj = cupy_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration, self.mlflow_enable)
         delta = next_obj - curr_obj
         logging.info(f"Iteration {iteration}: Objective function = {next_obj}, delta = {delta}")
 
@@ -223,16 +226,18 @@ def IterativeSolveWdsAndH_CuPy(
 
 
         # Log the objective function and delta to MLFlow
-        mlflow.log_metric("objective_function", next_obj, step=iteration)
-        mlflow.log_metric("delta", cp.abs(delta), step=iteration)
+        if self.mlflow_enable:
+            mlflow.log_metric("objective_function", next_obj, step=iteration)
+            mlflow.log_metric("delta", cp.abs(delta), step=iteration)
 
         # Break condition
         if cp.abs(delta) < self.tol or iteration >= self.max_iter:
             break
         
         curr_obj = next_obj
-
-    mlflow.log_metric("Iterations to converge", iteration)
+    if self.mlflow_enable:
+        mlflow.log_metric("Iterations to converge", iteration)
+    logging.info(f"Completed after {iteration} iterations")
 
     Ws = [W.get() for W in Ws]
     H = H.get()
