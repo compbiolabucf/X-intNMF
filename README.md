@@ -20,7 +20,7 @@ Sample datasets are provided in the `sample_processed_data` folder. There are th
 Additionally, two notebooks `sample_data_processing_BRCA.ipynb` and `sample_data_processing_LUAD.ipynb` are also provided to demonstrate how to process the raw data into the required format for X-intNMF.
 
 ## Code usage
-- File `X-intNMF-main.ipynb` contains the example code for running X-intNMF on the sample datasets.
+File `X-intNMF-main.ipynb` contains the example code for running X-intNMF on the sample datasets. Best parameters are provided on two files `2-omics.xlsx` and `3-omics.xlsx` for 2-omics and 3-omics setting for all experimental settings listed on the manuscript.
 
 
 ## Baselines and downstream tasks
@@ -29,7 +29,7 @@ Additionally, two notebooks `sample_data_processing_BRCA.ipynb` and `sample_data
 
 
 ## Additional information
-- Core model is located in folder `model`, with most of functions, classes and methods are already documented using docstrings.
+- Core model is located in folder `model`, with most of functions, classes and methods are already commented and documented using docstrings.
 - During the research, X-intNMF and its baselines were run along with the following support tools:
     - [MLFlow](https://mlflow.org/) for experiment tracking,
     - [MinIO](https://min.io/) for data, results, checkpoints storage
@@ -41,6 +41,13 @@ For simplicity and easy access, the authors did not include these tools in the m
     - `numpy` for CPU only. All operations are performed using numpy.
     - `cupy` for GPU using cupy. Most of the iterative operations are performed using cupy, the rest are performed using numpy.
     - `pytorch` for GPU using pytorch. Most of the iterative operations are performed using pytorch, the rest are performed using numpy. **This is the recommended backend**
+
+
+## Known issues
+- Documentation for methods and classes on `__init__.py` file of `X-intNMF` class is not correctly rendered when hovering over the method/class name. You can view the documentation by shift+click on the method/class name to view the source code and its docstring.
+
+## Contact
+For any concern or further assistance, contact [tienthanh.bui@ucf.edu](mailto:tienthanh.bui@ucf.edu)
 
 
 (c) 2025 bu1th4nh / UCF Computational Biology Lab. All rights reserved. 

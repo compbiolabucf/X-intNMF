@@ -29,46 +29,46 @@ import mlflow
 
 class XIntNMF:
     """
-Class to solve the cross-omics, multi-omics layers integration problem 
+    Class to solve the cross-omics, multi-omics layers integration problem 
 
-Data:
-------
-- `omics_layers`: List[np.ndarray]
-    A list of omics layers matrices of shape (m_d, N). Now denotes as X_d
-- `cross_omics_interaction`: Dict[Tuple[int, int], np.ndarray]
-    A dictionary of cross-omics interaction matrices of shape (m_p, m_q) with key as (p, q) where p, q are the interaction matrix of p-th and q-th omics layers
-- `internal_interaction`: List[np.ndarray]
-    A list of on-diagonal interaction matrices of shape (m_d, m_d)
+    Data:
+    ------
+    - `omics_layers`: List[np.ndarray]
+        A list of omics layers matrices of shape (m_d, N). Now denotes as X_d
+    - `cross_omics_interaction`: Dict[Tuple[int, int], np.ndarray]
+        A dictionary of cross-omics interaction matrices of shape (m_p, m_q) with key as (p, q) where p, q are the interaction matrix of p-th and q-th omics layers
+    - `internal_interaction`: List[np.ndarray]
+        A list of on-diagonal interaction matrices of shape (m_d, m_d)
 
 
-Hyperparameters:
-------
-- `num_clusters`: int
-    The number of latent variables or clusters to initialize the W matrices. Now denotes as k
-- `cross_omics_alpha`: float
-    The hyperparameter to control the graph regularization term. Now denotes as alpha
-- `sparsity_W_control_betas`: Union[float, List[float]]
-    The hyperparameter to control the sparsity of W matrices. If a single value is passed, the same value will be used for all W matrices. If a list is passed, the value will be used for each W matrix. Now denotes as betas
-- `lasso_control_gammas`: Union[np.array, List, float]
-    The L1 regularization parameter for each sample. If a single value is passed, the same value will be used for all samples. If a list is passed, the value will be used for each sample. Now denotes as gammas
+    Hyperparameters:
+    ------
+    - `num_clusters`: int
+        The number of latent variables or clusters to initialize the W matrices. Now denotes as k
+    - `cross_omics_alpha`: float
+        The hyperparameter to control the graph regularization term. Now denotes as alpha
+    - `sparsity_W_control_betas`: Union[float, List[float]]
+        The hyperparameter to control the sparsity of W matrices. If a single value is passed, the same value will be used for all W matrices. If a list is passed, the value will be used for each W matrix. Now denotes as betas
+    - `lasso_control_gammas`: Union[np.array, List, float]
+        The L1 regularization parameter for each sample. If a single value is passed, the same value will be used for all samples. If a list is passed, the value will be used for each sample. Now denotes as gammas
 
-    
-Control parameters:
-------
-- `similarity_method`: Union[Callable, None]
-    The similarity metric to calculate the similarity matrix. If None, the default metric is Pearson correlation coefficient. The method should take the omics layers matrix as input and return the similarity matrix of shape (feature, feature), or (m, m)
-- `max_iter`: int
-    The maximum number of iterations to run the algorithm
-- `tol`: float
-    The tolerance to stop the algorithm
-- `verbose`: bool
-    Whether to print the debug information or not
-- `gpu`: Union[int, None, str]
-    The GPU device to use. Default is None, which means using CPU
-- `backend`: Literal['numpy', 'cupy', 'pytorch']
-    The backend for matrix computation. Default is numpy
-- `mlflow_enable`: bool
-    Whether to enable MLFlow logging or not. Default is False
+        
+    Control parameters:
+    ------
+    - `similarity_method`: Union[Callable, None]
+        The similarity metric to calculate the similarity matrix. If None, the default metric is Pearson correlation coefficient. The method should take the omics layers matrix as input and return the similarity matrix of shape (feature, feature), or (m, m)
+    - `max_iter`: int
+        The maximum number of iterations to run the algorithm
+    - `tol`: float
+        The tolerance to stop the algorithm
+    - `verbose`: bool
+        Whether to print the debug information or not
+    - `gpu`: Union[int, None, str]
+        The GPU device to use. Default is None, which means using CPU
+    - `backend`: Literal['numpy', 'cupy', 'pytorch']
+        The backend for matrix computation. Default is numpy
+    - `mlflow_enable`: bool
+        Whether to enable MLFlow logging or not. Default is False
     """
 
 
@@ -122,34 +122,34 @@ Control parameters:
         mlflow_enable: bool = False,                                    # Whether to enable MLFlow logging or not
     ):
         """
-Initialize the XIntNMF class with the given parameters.
+        Initialize the XIntNMF class with the given parameters.
 
-Parameters:
-----------
-- `omics_layers` (`List[np.ndarray]`): 
-    Omics layers.
-- `cross_omics_interaction` (`Dict[Tuple[int, int], np.ndarray]`): 
-    Off-diagonal/Cross-omics interaction.
-- `k` (`int`): 
-    Number of latent variables or clusters.
-- `alpha` (`float`): 
-    Graph regularization term control.
-- `betas` (`Union[np.array, List, float]`): 
-    Sparsity control for W matrices. The sample will be automatically broadcasted to all if a single value is passed.
-- `gammas` (`Union[np.array, List, float]`): 
-    L1 regularization & sparsity parameter for each sample. The sample will be automatically broadcasted to all if a single value is passed.
-- `max_iter` (`int`): 
-    Maximum number of iterations.
-- `tol` (`float`): 
-    Tolerance to stop the algorithm.
-- `verbose` (`bool`, optional): 
-    Whether to print the debug information or not. Default is False.
-- `gpu` (`Union[int, None]`, optional): 
-    GPU device to use. Default is None.
-- `backend` (`Literal['numpy', 'cupy', 'pytorch']`, optional): 
-    Backend for matrix computation. Default is numpy.
-- `mlflow_enable` (`bool`, optional): 
-    Whether to enable MLFlow logging or not. Default is False.
+        Parameters:
+        ----------
+        - `omics_layers` (`List[np.ndarray]`): 
+            Omics layers.
+        - `cross_omics_interaction` (`Dict[Tuple[int, int], np.ndarray]`): 
+            Off-diagonal/Cross-omics interaction.
+        - `k` (`int`): 
+            Number of latent variables or clusters.
+        - `alpha` (`float`): 
+            Graph regularization term control.
+        - `betas` (`Union[np.array, List, float]`): 
+            Sparsity control for W matrices. The sample will be automatically broadcasted to all if a single value is passed.
+        - `gammas` (`Union[np.array, List, float]`): 
+            L1 regularization & sparsity parameter for each sample. The sample will be automatically broadcasted to all if a single value is passed.
+        - `max_iter` (`int`): 
+            Maximum number of iterations.
+        - `tol` (`float`): 
+            Tolerance to stop the algorithm.
+        - `verbose` (`bool`, optional): 
+            Whether to print the debug information or not. Default is False.
+        - `gpu` (`Union[int, None]`, optional): 
+            GPU device to use. Default is None.
+        - `backend` (`Literal['numpy', 'cupy', 'pytorch']`, optional): 
+            Backend for matrix computation. Default is numpy.
+        - `mlflow_enable` (`bool`, optional): 
+            Whether to enable MLFlow logging or not. Default is False.
         """
 
 
@@ -276,40 +276,40 @@ Parameters:
         additional_tasks_interval: int = 50,
     ) -> Tuple[List[np.ndarray], np.ndarray]:
         """
-Solve the cross-omics, multi-omics layers integration problem
+            Solve the cross-omics, multi-omics layers integration problem
 
-Parameters:
----------
-- `pre_normalize` (`bool`): 
-    Whether to pre-normalize the data. Default is True.
-- `pre_normalize_method` (`Union[Callable, Literal]`): 
-    Method for pre-normalization. Default is "max".
-- `pre_normalize_orientation` (`Literal`): 
-    Orientation for pre-normalization. Default is "row".
-- `internal_interaction_init_methods` (`Union[Callable, None]`): 
-    Methods to initialize interaction matrices. Default is None.
-- `internal_interaction_get_abs_value` (`bool`): 
-    Whether to get absolute value for interaction matrices. Default is True.
-- `balancing_cutoff_density_measure` (`Union[Callable, Literal]`): 
-    Density measure for balancing cutoff. Default is "density".
-- `balancing_cutoff_compare_with` (`Literal`): 
-    Comparison method for balancing cutoff. Default is "off_diag".
-- `balancing_cutoff_density_agg_method` (`Literal`): 
-    Aggregation method for density in balancing cutoff. Default is "mean".
-- `initialize_Wd_method` (`Union[Callable, Literal]`): 
-    Method to initialize Wd matrices. Default is "nmf".
-- `use_cross_validation` (`bool`): 
-    Whether to use cross-validation for Lasso. Default is True.
-- `run_mode` (`Literal`): 
-    Mode to run the solver. Default is 'full'.
-- `additional_tasks` (`Union[Callable, None]`): 
-    Additional tasks to perform during solving. Default is None.
-- `additional_tasks_interval` (`int`): 
-    Interval for additional tasks. Default is 50.
+            Parameters:
+            ---------
+            - `pre_normalize` (`bool`): 
+                Whether to pre-normalize the data. Default is True.
+            - `pre_normalize_method` (`Union[Callable, Literal]`): 
+                Method for pre-normalization. Default is "max".
+            - `pre_normalize_orientation` (`Literal`): 
+                Orientation for pre-normalization. Default is "row".
+            - `internal_interaction_init_methods` (`Union[Callable, None]`): 
+                Methods to initialize interaction matrices. Default is None.
+            - `internal_interaction_get_abs_value` (`bool`): 
+                Whether to get absolute value for interaction matrices. Default is True.
+            - `balancing_cutoff_density_measure` (`Union[Callable, Literal]`): 
+                Density measure for balancing cutoff. Default is "density".
+            - `balancing_cutoff_compare_with` (`Literal`): 
+                Comparison method for balancing cutoff. Default is "off_diag".
+            - `balancing_cutoff_density_agg_method` (`Literal`): 
+                Aggregation method for density in balancing cutoff. Default is "mean".
+            - `initialize_Wd_method` (`Union[Callable, Literal]`): 
+                Method to initialize Wd matrices. Default is "nmf".
+            - `use_cross_validation` (`bool`): 
+                Whether to use cross-validation for Lasso. Default is True.
+            - `run_mode` (`Literal`): 
+                Mode to run the solver. Default is 'full'.
+            - `additional_tasks` (`Union[Callable, None]`): 
+                Additional tasks to perform during solving. Default is None.
+            - `additional_tasks_interval` (`int`): 
+                Interval for additional tasks. Default is 50.
 
-Returns:
--------
-- `Tuple[List[np.ndarray], np.ndarray]`: The solved W matrices and H matrix. W matrices are of shape (m_d, k) and H matrix is of shape (k, N), denotes omics factors and sample factor respectively.
+            Returns:
+            -------
+            - `Tuple[List[np.ndarray], np.ndarray]`: The solved W matrices and H matrix. W matrices are of shape (m_d, k) and H matrix is of shape (k, N), denotes omics factors and sample factor respectively.
         """
 
 
