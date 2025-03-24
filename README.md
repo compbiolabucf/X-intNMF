@@ -19,10 +19,6 @@ Sample datasets are provided in the `sample_processed_data` folder. There are th
 All data files are in `*.parquet` format for read/write efficiency and DataFrame indexing. Additionally, two notebooks `sample_data_processing_BRCA.ipynb` and `sample_data_processing_LUAD.ipynb` are also provided to demonstrate how to process the raw data into the required format for X-intNMF.
 
 
-## Usage
-File `X-intNMF-main.ipynb` contains the example code for running X-intNMF on the sample datasets. Best parameters are provided on two files `2-omics.xlsx` and `3-omics.xlsx` for 2-omics and 3-omics setting for all experimental settings listed on the manuscript.
-
-
 ## Data input & output format
 - All the omics data must have the following format:
     - Each omics data is in **feature-by-sample** format, with sample names as columns and feature names as rows.
@@ -32,11 +28,6 @@ File `X-intNMF-main.ipynb` contains the example code for running X-intNMF on the
     - The first element is a list of NumPy ndarrays, each NumPy ndarray contains the NMF factor matrix for each omics data type, which is in **feature-by-latent-factors** format, with features as rows and latent factors as columns.
     - The second element is a NumPy ndarray containing the NMF factor matrix for the sample data, which is in **latent-factors-by-sample** format, with latent factors as rows and samples as columns.
 Although the output format are NumPy ndarrays, users can easily convert them to pandas DataFrame, which is demonstrated in the notebook.
-
-
-## Baselines and downstream tasks
-- Folder `baselines` contains the modified code for baseline methods, including MOFA2, MOGONET, MCRGCN, and MOFA2.
-- Folder `downstream` contains the code for downstream tasks, including survival analysis and prognosis prediction. Detailed instructions are provided upon request.
 
 
 ## Additional information

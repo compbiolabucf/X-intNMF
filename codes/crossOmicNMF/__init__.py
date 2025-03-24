@@ -27,54 +27,50 @@ import mlflow
 
 
 
-class XIntNMF:
+class XIntNMF:    
     """
-    Class to solve the cross-omics, multi-omics layers integration problem 
+        Class to solve the cross-omics, multi-omics layers integration problem 
 
-    Data:
-    ------
-    - `omics_layers`: List[np.ndarray]
-        A list of omics layers matrices of shape (m_d, N). Now denotes as X_d
-    - `cross_omics_interaction`: Dict[Tuple[int, int], np.ndarray]
-        A dictionary of cross-omics interaction matrices of shape (m_p, m_q) with key as (p, q) where p, q are the interaction matrix of p-th and q-th omics layers
-    - `internal_interaction`: List[np.ndarray]
-        A list of on-diagonal interaction matrices of shape (m_d, m_d)
-
-
-    Hyperparameters:
-    ------
-    - `num_clusters`: int
-        The number of latent variables or clusters to initialize the W matrices. Now denotes as k
-    - `cross_omics_alpha`: float
-        The hyperparameter to control the graph regularization term. Now denotes as alpha
-    - `sparsity_W_control_betas`: Union[float, List[float]]
-        The hyperparameter to control the sparsity of W matrices. If a single value is passed, the same value will be used for all W matrices. If a list is passed, the value will be used for each W matrix. Now denotes as betas
-    - `lasso_control_gammas`: Union[np.array, List, float]
-        The L1 regularization parameter for each sample. If a single value is passed, the same value will be used for all samples. If a list is passed, the value will be used for each sample. Now denotes as gammas
-
+        Data:
+        ---
+        - `omics_layers`: List[np.ndarray]
+            A list of omics layers matrices of shape (m_d, N). Now denotes as X_d
+        - `cross_omics_interaction`: Dict[Tuple[int, int], np.ndarray]
+            A dictionary of cross-omics interaction matrices of shape (m_p, m_q) with key as (p, q) where p, q are the interaction matrix of p-th and q-th omics layers
+        - `internal_interaction`: List[np.ndarray]
+            A list of on-diagonal interaction matrices of shape (m_d, m_d)
         
-    Control parameters:
-    ------
-    - `similarity_method`: Union[Callable, None]
-        The similarity metric to calculate the similarity matrix. If None, the default metric is Pearson correlation coefficient. The method should take the omics layers matrix as input and return the similarity matrix of shape (feature, feature), or (m, m)
-    - `max_iter`: int
-        The maximum number of iterations to run the algorithm
-    - `tol`: float
-        The tolerance to stop the algorithm
-    - `verbose`: bool
-        Whether to print the debug information or not
-    - `gpu`: Union[int, None, str]
-        The GPU device to use. Default is None, which means using CPU
-    - `backend`: Literal['numpy', 'cupy', 'pytorch']
-        The backend for matrix computation. Default is numpy
-    - `mlflow_enable`: bool
-        Whether to enable MLFlow logging or not. Default is False
+
+        Hyperparameters:
+        ---
+        - `num_clusters`: int
+            The number of latent variables or clusters to initialize the W matrices. Now denotes as k
+        - `cross_omics_alpha`: float
+            The hyperparameter to control the graph regularization term. Now denotes as alpha
+        - `sparsity_W_control_betas`: Union[float, List[float]]
+            The hyperparameter to control the sparsity of W matrices. If a single value is passed, the same value will be used for all W matrices. If a list is passed, the value will be used for each W matrix. Now denotes as betas
+        - `lasso_control_gammas`: Union[np.array, List, float]
+            The L1 regularization parameter for each sample. If a single value is passed, the same value will be used for all samples. If a list is passed, the value will be used for each sample. Now denotes as gammas
+        
+            
+        Control parameters:
+        ---
+        - `similarity_method`: Union[Callable, None]
+            The similarity metric to calculate the similarity matrix. If None, the default metric is Pearson correlation coefficient. The method should take the omics layers matrix as input and return the similarity matrix of shape (feature, feature), or (m, m)
+        - `max_iter`: int
+            The maximum number of iterations to run the algorithm
+        - `tol`: float
+            The tolerance to stop the algorithm
+        - `verbose`: bool
+            Whether to print the debug information or not
+        - `gpu`: Union[int, None]
+            The GPU device to use. Default is None, which means using CPU
     """
 
 
 
     # Data - Directly from the input
-    Xd_source: List[np.ndarray]                                        # Omics layers
+    Xd_source: List[np.ndarray]                                 # Omics layers
     cross_omics_interaction: Dict[Tuple[int, int], np.ndarray]  # Off-diagonal/Cross-omics interaction. Will contains internal interaction as well
 
     # Hyperparameters - Directly from the input
@@ -90,7 +86,7 @@ class XIntNMF:
     similarity_method: Union[Callable, None]                    # The similarity metric to calculate the similarity matrix. If None, the default metric is Pearson correlation coefficient. The method should take the omics layers matrix as input and return the similarity matrix of shape (feature, feature), or (m, m)
     device: Union[str, None] = None                             # Device to use. Default is None
     backend: Literal['numpy', 'cupy', 'pytorch'] = 'numpy'      # Backend for matrix computation. Default is numpy
-    mlflow_enable: bool                                         # Whether to enable MLFlow logging or not
+    mlflow_enabled: bool                                        # Whether to enable MLFlow logging or not
 
     # Internal variables, inferred from input
     D: int                                                      # Number of omics layers
@@ -119,37 +115,34 @@ class XIntNMF:
         verbose: bool = False,                                          # Whether to print the debug information or not 
         gpu: Union[int, None] = None,                                   # GPU device to use. Default is None
         backend: Literal['numpy', 'cupy', 'pytorch'] = 'numpy',         # Backend for matrix computation. Default is numpy
-        mlflow_enable: bool = False,                                    # Whether to enable MLFlow logging or not
+        mlflow_enable: bool = True,                                     # Whether to enable MLFlow logging or not
     ):
         """
-        Initialize the XIntNMF class with the given parameters.
-
-        Parameters:
-        ----------
-        - `omics_layers` (`List[np.ndarray]`): 
-            Omics layers.
-        - `cross_omics_interaction` (`Dict[Tuple[int, int], np.ndarray]`): 
-            Off-diagonal/Cross-omics interaction.
-        - `k` (`int`): 
-            Number of latent variables or clusters.
-        - `alpha` (`float`): 
-            Graph regularization term control.
-        - `betas` (`Union[np.array, List, float]`): 
-            Sparsity control for W matrices. The sample will be automatically broadcasted to all if a single value is passed.
-        - `gammas` (`Union[np.array, List, float]`): 
-            L1 regularization & sparsity parameter for each sample. The sample will be automatically broadcasted to all if a single value is passed.
-        - `max_iter` (`int`): 
-            Maximum number of iterations.
-        - `tol` (`float`): 
-            Tolerance to stop the algorithm.
-        - `verbose` (`bool`, optional): 
-            Whether to print the debug information or not. Default is False.
-        - `gpu` (`Union[int, None]`, optional): 
-            GPU device to use. Default is None.
-        - `backend` (`Literal['numpy', 'cupy', 'pytorch']`, optional): 
-            Backend for matrix computation. Default is numpy.
-        - `mlflow_enable` (`bool`, optional): 
-            Whether to enable MLFlow logging or not. Default is False.
+            Initialize the XIntNMF class with the following parameters:
+            - `omics_layers` (`List[np.ndarray]`): 
+                Omics layers.
+            - `cross_omics_interaction` (`Dict[Tuple[int, int], np.ndarray]`): 
+                Off-diagonal/Cross-omics interaction.
+            - `k` (`int`):  
+                Number of latent variables or clusters.
+            - `alpha` (`float`): 
+                Graph regularization term control.
+            - `betas` (`Union[np.array, List, float]`): 
+                Sparsity control for W matrices. The sample will be automatically broadcasted to all if a single value is passed.
+            - `gammas` (`Union[np.array, List, float]`): 
+                L1 regularization & sparsity parameter for each sample. The sample will be automatically broadcasted to all if a single value is passed.
+            - `max_iter` (`int`): 
+                Maximum number of iterations.
+            - `tol` (`float`): 
+                Tolerance to stop the algorithm.
+            - `verbose` (`bool`, optional): 
+                Whether to print the debug information or not. Default is False.
+            - `gpu` (`Union[int, None]`, optional): 
+                GPU device to use. Default is None.
+            - `backend` (`Literal['numpy', 'cupy', 'pytorch']`, optional): 
+                Backend for matrix computation. Default is numpy.
+            - `mlflow_enable` (`bool`, optional): 
+                Whether to enable MLFlow logging or not. Default is True.
         """
 
 
@@ -165,7 +158,7 @@ class XIntNMF:
         self.verbose = verbose
         self.backend = backend
         self.device = (f'cuda:{gpu}' if isinstance(gpu, int) else gpu) if gpu is not None else 'cpu'
-        self.mlflow_enable = mlflow_enable
+        self.mlflow_enabled = mlflow_enable
 
 
         # Inferred from input
@@ -185,7 +178,6 @@ class XIntNMF:
         # Debug: Print the log
         logging.info(f"Initialized CrossOmicDataInt with {self.D} omics layers, {self.N} samples, {self.M} features, {self.k} clusters, alpha={alpha}, betas={betas}, gammas={gammas}, max_iter={self.max_iter}, tol={self.tol}")
 
-
         # Backend selection
         if self.backend == 'numpy':
             from ._math import IterativeSolveWdsAndH
@@ -199,7 +191,7 @@ class XIntNMF:
             
 
         # MLFlow logging
-        if self.mlflow_enable:
+        if self.mlflow_enabled:
             mlflow.log_param("alpha", alpha)
             mlflow.log_param("betas", betas)
             mlflow.log_param("gammas", gammas)
@@ -236,7 +228,7 @@ class XIntNMF:
     from ._operations import InitializeAndConcatenateInteraction
     from ._operations import InitializeBalancedCutoff
     from ._operations import InitializeWd
-    from ._operations import LassoSolveH
+    from ._operations import LassoInitializeH
 
 
     from ._debug import PrenormalizeDebug
@@ -278,8 +270,8 @@ class XIntNMF:
         """
             Solve the cross-omics, multi-omics layers integration problem
 
-            Parameters:
-            ---------
+            Inputs:
+            ---
             - `pre_normalize` (`bool`): 
                 Whether to pre-normalize the data. Default is True.
             - `pre_normalize_method` (`Union[Callable, Literal]`): 
@@ -308,12 +300,8 @@ class XIntNMF:
                 Interval for additional tasks. Default is 50.
 
             Returns:
-            -------
-            - `Tuple[List[np.ndarray], np.ndarray]`: The solved W matrices and H matrix. W matrices are of shape (m_d, k) and H matrix is of shape (k, N), denotes omics factors and sample factor respectively.
+            `Tuple[List[np.ndarray], np.ndarray]`: The solved W matrices and H matrix. W matrices are of shape (m_d, k) and H matrix is of shape (k, N), denotes omics factors and sample factor respectively.
         """
-
-
-
         self.Xd = self.Xd_source
         # -----------------------------------------------------------------------------------------------
         # Compose raw baseline if needed
@@ -380,8 +368,6 @@ class XIntNMF:
 
 
         logging.warning("[4/6] Initializing W matrices...")
-
-        
         # -----------------------------------------------------------------------------------------------
         # 4.Initialize W matrices - Required lock. If two processes are running at the same time will risk freezing
         # -----------------------------------------------------------------------------------------------
@@ -440,7 +426,7 @@ class XIntNMF:
     
 
 
-# Content and code by bu1th4nh/UCF Compbio. Written with dedication in the University of Central Florida and the Magic Kingdom.
+# Content and code by bu1th4nh. Written with dedication in the University of Central Florida and the Magic Kingdom.
 # Powered, inspired and motivated by EDM, Counter-Strike and Disney Princesses. 
 # Image credit: https://emojicombos.com/little-mermaid-text-art
 #                                                                                                           

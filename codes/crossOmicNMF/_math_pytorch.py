@@ -13,8 +13,7 @@
 # Date: 2024/09/22 13:42:21
 # Description: File contains the objective and iterative functions
 # 
-# (c) 2025 bu1th4nh / UCF Computational Biology Lab. All rights reserved. 
-# Written with dedication in the University of Central Florida, EPCOT and the Magic Kingdom.
+# (c) bu1th4nh. All rights reserved
 # -----------------------------------------------------------------------------------------------
 
 
@@ -44,7 +43,7 @@ def torch_objective_function(
 
     iteration:          int,
     device:             str,
-    mlflow_enable:      bool = False
+    mlflow_enabled:     bool = True,
 ) -> np.float64:
 
     # Calculate the reconstruction error
@@ -79,7 +78,7 @@ def torch_objective_function(
     f = 1/2 * reconstruction_error + graph_regularization + sparsity_control_for_Ws + sparsity_control_for_H
 
 
-    if mlflow_enable:
+    if mlflow_enabled:
         mlflow.log_metric("Reconstruction error", reconstruction_error, step=iteration)
         mlflow.log_metric("Graph regularization", graph_regularization, step=iteration)
         mlflow.log_metric("Sparsity control for Ws", sparsity_control_for_Ws, step=iteration)
@@ -107,15 +106,23 @@ def torch_update(
     next_Ws = []
     for d, W in enumerate(Ws_current):
         Ariel = Xs[d] @ H.T + alpha * torch.sum(torch.stack([similarity_block[d][p] @ Wp for p, Wp in enumerate(Ws_current)]), dim=0)
-        Belle = W @ H @ H.T + alpha * torch.sum(torch.stack([degree_block[d][p] @ Wp for p, Wp in enumerate(Ws_current)]), dim=0) + betas[d]
-
+        Belle = W @ H @ H.T + alpha * W + betas[d] + 0.0001 # Add 0.0001 to avoid division by zero
         next_W = Ariel / Belle * W
+
         next_Ws.append(next_W)
+
 
 
     Ariel = torch.sum(torch.stack([W.T @ X for W, X in zip(next_Ws, Xs)]), dim=0)
     Cindy = torch.sum(torch.stack([W.T @ W @ H for W in next_Ws]), dim=0) + torch.broadcast_to(gammas, (H.shape[0], H.shape[1]))
     next_H = Ariel / Cindy * H
+
+    # Normalize the next_H, to have sum of each columns equal to 1
+    # next_H = next_H / torch.sum(next_H, dim=0, keepdim=True)
+    # Clip the next_H to be non-negative
+    # next_H = torch.clamp(next_H, min=0.0)
+
+
     
 
 
@@ -130,7 +137,7 @@ def IterativeSolveWdsAndH_PyTorch(
     initialized_H:              Union[np.ndarray], 
     additional_tasks:           Union[None, Callable, List[Callable]] = None,
     additional_tasks_interval:  int = 50,
-) -> Tuple[List[np.ndarray], np.ndarray]:
+) -> List[np.ndarray]:
     """
         Iteratively solve the W matrices with fixed H matrix (6)
         
@@ -147,8 +154,8 @@ def IterativeSolveWdsAndH_PyTorch(
 
         Output
         ------
-        Tuple[List[np.ndarray], np.ndarray]
-            A tuple of W matrices and H matrix. W matrices are of shape (m_d, k) and H matrix is of shape (k, N), denotes omics factors and sample factor respectively.
+        W: List[np.ndarray]
+            A list of W matrices of shape (m_d, k)
     """
 
     # Construct the omic indices for matrix splitting
@@ -206,110 +213,62 @@ def IterativeSolveWdsAndH_PyTorch(
     Ws = initialized_Wds
     H = initialized_H
     iteration = 0
-    curr_obj = torch_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration, self.device, self.mlflow_enable)
-    if self.mlflow_enable:
-        mlflow.log_metric("objective_function", curr_obj, step=iteration)
+    curr_obj = torch_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration, self.device, self.mlflow_enabled)
+    if self.mlflow_enabled: mlflow.log_metric("objective_function", curr_obj, step=iteration)
 
     if additional_tasks is not None: 
-        if callable(additional_tasks): 
-            additional_tasks(Ws, H, iteration)
-        else: 
-            for task in additional_tasks: task(Ws, H, iteration)
+        if callable(additional_tasks): additional_tasks(Ws, H, iteration)
+        else: _ = [task(Ws, H, iteration) for task in additional_tasks] # Execute the additional tasks
 
 
     while True:
         iteration += 1
         new_Ws, new_H = torch_update(Xd, Ws, H, E, degree_block, alpha, betas, gammas)
 
+
         # Log the delta of Ws and H
-        if self.mlflow_enable:
+        if self.mlflow_enabled:
             for W_idx, W in enumerate(new_Ws):
                 mlflow.log_metric(f"W{W_idx}_delta", torch.norm(new_Ws[W_idx] - Ws[W_idx], p="fro").detach().cpu().numpy(), step=iteration)
             mlflow.log_metric(f"H_delta", torch.norm(new_H - H, p="fro").detach().cpu().numpy(), step=iteration)
+
 
         # Update the Ws and H
         Ws = new_Ws
         H = new_H
 
+
         # Compute the objective function
-        next_obj = torch_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration, self.device, self.mlflow_enable)
+        next_obj = torch_objective_function(Xd, Ws, H, E, degree_block, alpha, betas, gammas, iteration, self.device, self.mlflow_enabled)
         delta = next_obj - curr_obj
         logging.info(f"Iteration {iteration}: Objective function = {next_obj}, delta = {delta}")
+        if np.isnan(next_obj) or np.isinf(next_obj):
+            logging.error(f"Objective function is NaN/Inf at iteration {iteration}.")
+            break
+
 
         # Evaluate metrics if provided
         if additional_tasks is not None and iteration % additional_tasks_interval == 0:
-            if callable(additional_tasks): 
-                additional_tasks(Ws, H, iteration)
-            else: 
-                for task in additional_tasks: task(Ws, H, iteration)
+            if callable(additional_tasks): additional_tasks(Ws, H, iteration)
+            else: _ = [task(Ws, H, iteration) for task in additional_tasks] # Execute the additional tasks
 
 
         # Log the objective function and delta to MLFlow
-        if self.mlflow_enable:
+        if self.mlflow_enabled:
             mlflow.log_metric("objective_function", next_obj, step=iteration)
             mlflow.log_metric("delta", np.abs(delta), step=iteration)
 
+
         # Break condition
         if np.abs(delta) < self.tol or iteration >= self.max_iter:
+            if np.abs(delta) < self.tol: logging.info(f"Converged!")
             break
-        
         curr_obj = next_obj
-    if self.mlflow_enable:
-        mlflow.log_metric("Iterations to converge", iteration)
+        
+
+    logging.info(f"Finished after {iteration} iterations.")
+    if self.mlflow_enabled: mlflow.log_metric("Iterations to converge", iteration)
 
     Ws = [W.detach().cpu().numpy() for W in Ws]
     H = H.detach().cpu().numpy()
     return Ws, H
-
-
-
-# Content and code by bu1th4nh/UCF Compbio. Written with dedication in the University of Central Florida and the Magic Kingdom.
-# Powered, inspired and motivated by EDM, Counter-Strike and Disney Princesses. 
-# Image credit: https://emojicombos.com/little-mermaid-text-art
-#                                                                                                           
-#                                                          ⡀⣰    
-#                                                         ⣰⡿⠃    
-#                                                        ⣼⣿⣧⠏    
-#                                                       ⣰⣿⠟⠋     
-#                                                       ⣿⡿       
-#                                                      ⣸⣿⡇       
-#                                        ⣀⣴⣾⣿         ⢰⣿⣿⡇       
-#                                    ⢀⣠⣾⣿⣿⣿⣿⡏         ⣼⣿⣿        
-#                                   ⣠⣿⣿⣿⣿⣿⣿⣿⣤        ⢠⣿⣿⠇        
-#                                  ⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⡄    ⢀⣾⣿⣿         
-#                                 ⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠄  ⣤⣾⣿⡟⠁         
-#                                ⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏⠁⢀⣴⣾⣿⣿⠏           
-#                             ⣀⣀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⣴⣿⣿⣿⠿⠁            
-#                       ⣀⣤⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏              
-#                     ⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣄              
-#                    ⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡄            
-#                    ⣾⣿⣿⣿⠿⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇            
-#                   ⣸⣿⡿⠉⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠉⢿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁            
-#               ⠠⣤⣴⣾⡿⠋ ⣼⣿⣿⣿⢟⣿⣿⠏⢰⣿⡿⠟⢻⣿⣿⡿   ⠈⢿⣿⣿⣿⣿⣿⣿⠏              
-#                     ⣼⣿⣿⡟⠁⣸⡿⠁ ⠘⠋⣀⣴⣿⣿⠟    ⢀⣼⣿⣿⣿⣿⣿⠃               
-#                  ⢠⣴⣾⣿⠿⠋ ⠐⠋   ⢀⣾⣿⣿⡿⠋   ⣠⣴⣾⣿⣿⣿⣿⣿⠃                
-#                            ⢀⣴⣿⡿⠛⠉   ⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿                 
-#                          ⢠⣶⡿⠋⠁    ⢠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡆                
-#                         ⣠⣿⣿⡇     ⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇                
-#                       ⠴⣿⣿⠋⡿⠁    ⢀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁                
-#                        ⠿⠏       ⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏                 
-#                                ⢀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟                  
-#                                ⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟                   
-#                               ⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠋                    
-#                               ⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁                     
-#                             ⢀⣾⣿⣿⣿⣿⣿⣿⣿⡿⠟                        
-#                           ⣀⣴⣿⣿⣿⣿⣿⣿⣿⠿⠋                          
-#                        ⣀⣤⣾⣿⣿⣿⣿⣿⡿⠟⠋                             
-#               ⣀⣀⣀⣠⣤⣤⣤⣶⣿⣿⣿⣿⡿⠿⠛⠋⠁                                
-#         ⢀⣠⣶⣶⣿⣿⣿⣿⣿⣿⣿⣿⠟⠛⠋⠉⠉                                      
-#       ⢀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠁                                           
-#      ⣠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣇                                            
-#     ⢠⣿⣿⣿⣿⣿⣿⡿⠟⠋⢠⣿⣿⣿⣿⣧                                           
-#     ⣼⣿⡿⠟⠋⠉    ⠸⣿⣿⣿⣿⣿⣧                                          
-#     ⣿⡟         ⣿⣿⣿⣿⣿⣿                                          
-#     ⠸⠇         ⣿⣿⣿⣿⣿⣿                                          
-#                ⢸⣿⣿⣿⣿⡟                                          
-#                ⣼⣿⣿⣿⠟                                           
-#               ⢀⣿⡿⠛⠁                                            
-#                                                                
-                                                                                                                                       

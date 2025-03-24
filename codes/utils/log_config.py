@@ -8,17 +8,16 @@
 
 
 # -----------------------------------------------------------------------------------------------
-# Author: Bùi Tiến Thành (@bu1th4nh)
+# Author: Bùi Tiến Thành - Tien-Thanh Bui (@bu1th4nh)
 # Title: log_config.py
-# Date: 2024/09/24 10:04:59
-# Description: Log configuration
+# Date: 2025/03/24 17:15:28
+# Description: 
 # 
-# (c) bu1th4nh. All rights reserved
+# (c) 2025 bu1th4nh / UCF Computational Biology Lab. All rights reserved. 
+# Written with dedication in the University of Central Florida, EPCOT and the Magic Kingdom.
 # -----------------------------------------------------------------------------------------------
 
 
-import numpy as np
-import pandas as pd
 
 import sys
 import logging
@@ -28,7 +27,7 @@ from colorlog import ColoredFormatter
 # -----------------------------------------------------------------------------------------------
 # Setup
 # -----------------------------------------------------------------------------------------------
-def initialize_logging(log_filename: Union[str, None] = None):
+def initialize_logging(log_filename: Union[str, None]):
     # logging.root = logging.getLogger('uvicorn.default')
     logging.root.handlers = [];
 
@@ -47,22 +46,7 @@ def initialize_logging(log_filename: Union[str, None] = None):
             }
         )
     )
-
-    # handler_api_sh = logging.StreamHandler(sys.stdout)
-    # handler_api_sh.setFormatter(
-    #     ColoredFormatter(
-    #         "%(light_purple)s%(asctime)s.%(msecs)03d %(log_color)s[%(levelname)s]%(reset)s %(white)s[RESPONSE]%(reset)s %(light_purple)s%(message)s",
-    #         datefmt  = '%Y/%m/%d %H:%M:%S',
-    #         log_colors={
-    #             'DEBUG': 'gray',
-    #             'INFO': 'green',
-    #             'WARNING': 'yellow',
-    #             'ERROR': 'red',
-    #             'CRITICAL': 'red,bg_white',
-    #         }
-    #     )
-    # )
-
+    
 
     # File handler
     if log_filename is not None:

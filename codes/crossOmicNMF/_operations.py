@@ -294,7 +294,7 @@ def InitializeWd(
     
 
 
-def LassoSolveH(
+def LassoInitializeH(
     self,
     initialized_Wds: List[np.ndarray], 
     use_cross_validation: bool = False,
@@ -341,7 +341,7 @@ def LassoSolveH(
     
 
     # Solve individual column of H 
-    for index, gamma in enumerate(tqdm(list(self.gammas), desc="Solving H matrix")):
+    for index, gamma in enumerate(tqdm(list(self.gammas), desc="Initializing H matrix")):
         if use_cross_validation:
             lasso = LassoCV(
                 fit_intercept = False, 
