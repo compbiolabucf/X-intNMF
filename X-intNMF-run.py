@@ -42,12 +42,18 @@ omic_paths = args.omics_input
 interaction_paths = args.interaction_input
 
 
+logging.info("Reading omics data...")
+logging.info(f"Omics data files: {omic_paths}")
+logging.info(f"Interaction data files: {interaction_paths}")
+
 # Dataset
 omics_data = [autoread_file(path) for path in omic_paths]
 omics_filenames = { strip_filename(path): idx for idx, path in enumerate(omic_paths) }
 omics_id_array = [strip_filename(path) for path in omic_paths]
 omics_features = [data.index.tolist() for data in omics_data]
 samples = omics_data[0].columns.tolist()
+logging.info(f"Omics data files: {omics_filenames.keys()}")
+
 
 
 # Interaction
@@ -59,7 +65,6 @@ for path in interaction_paths:
 
     # Sanitize omics names, i.e. check if they are in the omics_filenames dict
     if omics1 not in omics_filenames or omics2 not in omics_filenames:
-
         missing = []
         if omics1 not in omics_filenames: missing.append(omics1)
         if omics2 not in omics_filenames: missing.append(omics2)
@@ -71,6 +76,8 @@ for path in interaction_paths:
     o1_index = omics_filenames[omics1]
     o2_index = omics_filenames[omics2]
     interaction_data[(o1_index, o2_index)] = autoread_file(path).to_numpy(np.float64, True, na_value=0.0)
+    logging.info(f"Read interaction data from {path} as interaction between {omics1} and {omics2}.")
+    
 
 
 
@@ -82,23 +89,26 @@ alpha = args.graph_regularization
 betas = args.omics_regularization
 gammas = args.sample_regularization
 
-max_iter = args.num_iterations
-tol = args.tolerance
+max_iter = args.max_iter
+tol = args.tol
 gpu = args.gpu
-backend = args.backend if gpu != -1 else "pytorch"
-mlflow = args.mlflow_uri
+backend = args.backend if gpu == -1 else "pytorch"
+mlflow_uri = args.mlflow_uri
 mlflow_expr_name = args.mlflow_experiment_name
 
 out_format = args.output_format
 out_dir = args.output_dir
+
+
+
 # -----------------------------------------------------------------------------------------------
 # MLFlow
 # -----------------------------------------------------------------------------------------------
-if len(mlflow) > 0:
+if len(mlflow_uri) > 0:
     import mlflow
-    mlflow.set_tracking_uri(mlflow)
-    mlflow.set_experiment(mlflow_expr_name)
-    run_name = f"X-intNMF-components={k}-alpha={alpha}-beta={betas}-gamma={gammas}-backend={backend}"
+    mlflow.set_tracking_uri(uri = str(mlflow_uri))
+    mlflow.set_experiment(str(mlflow_expr_name))
+    run_name = f"X-intNMF-components={k}-alpha={alpha}-beta={betas}-gamma={gammas if gammas != -1 else 'auto'}-backend={backend}"
     mlflow.start_run(run_name=run_name)
 
 
@@ -118,7 +128,7 @@ model = XIntNMF(
     verbose = True,
     backend = backend,
     gpu = None if gpu == -1 else gpu,
-    mlflow_enable = True if mlflow != "" else False,
+    mlflow_enable = (mlflow_uri != ""),
 )
 
 

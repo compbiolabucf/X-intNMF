@@ -58,7 +58,7 @@ def strip_filename(path: str) -> str:
     Returns:
         str: Directory of the file.
     """
-    raw_fn = path.rsplit("/", 1)[0] if "/" in path else path.rsplit("\\", 1)[0]
+    raw_fn = path.rsplit("/", 1)[1] if "/" in path else path.rsplit("\\", 1)[1]
     return raw_fn.rsplit(".", 1)[0] if "." in raw_fn else raw_fn
 
 

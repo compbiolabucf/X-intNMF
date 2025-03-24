@@ -389,7 +389,7 @@ class XIntNMF:
         # 5.Solve the H matrix using Lasso - Required lock
         # -----------------------------------------------------------------------------------------------
         logging.warning("[5/6] Initializing H using Lasso...")
-        H = self.LassoSolveH(
+        H = self.LassoInitializeH(
             initialized_Wds = Wds,
             use_cross_validation = use_cross_validation,
         )

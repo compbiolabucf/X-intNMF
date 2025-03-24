@@ -146,3 +146,8 @@ notebooks/DataInspection.ipynb
 
 # Results
 results/
+
+
+# Baselines
+baselines/
+downstream/

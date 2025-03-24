@@ -107,8 +107,8 @@ parser.add_argument(
     metavar="beta",
     type=float,
     required=False,
-    default=1,
-    help="Omics regularization parameter. Default is 1.",
+    default=0.1,
+    help="Omics regularization parameter. Default is 0.1.",
 )
 parser.add_argument(
     "--sample_regularization",
@@ -124,8 +124,8 @@ parser.add_argument(
 # Settings
 ############
 parser.add_argument(
-    "--num_iterations",
-    metavar="num_iter",
+    "--max_iter",
+    metavar="max_iter",
     type=int,
     required=False,
     default=5000,
