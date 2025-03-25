@@ -58,7 +58,7 @@ The input data files should be structured as follows:
         |Feature 2.1| 0.1      | 0.5      | 0.3      | 0.4      |
         |Feature 2.2| 0.5      | 0.1      | 0.7      | 0.8      |
         |Feature 2.3| 0.9      | 0.6      | 0.7      | 0.1      |
-- - The framework automatically determines and detect the interaction network based on the filename. Therefore, **it is recommended to use short filenames without any whitespaces** to avoid potential errors.
+- The framework automatically determines and detect the interaction network based on the filename. Therefore, **it is recommended to use short filenames without any whitespaces** to avoid potential errors.
 
 #### Interaction network
 - Its file name must have the following format:
