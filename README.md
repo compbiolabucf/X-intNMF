@@ -115,7 +115,6 @@ Other arguments include:
   - `--log_file`: Path to the log file. Default is `x_intnmf.log`. Use an empty string to disable logging.
   - `--mlflow_uri`: MLflow server URI for convergence logging. Format: `<mlflow_host>:<port>`. Default is an empty string (`""`), which disables MLflow logging.
   - `--mlflow_experiment_name`: MLflow experiment name. Only used if `--mlflow_uri` is set. Default is `X-intNMF`.
-  - 
 
 
 
