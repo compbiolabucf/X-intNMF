@@ -92,7 +92,7 @@ parser.add_argument(
     type=int,
     required=False,
     default=25,
-    help="Number of components to use for NMF. Default is 25.",
+    help="Number of latent components to use for NMF. Default is 25.",
 )
 parser.add_argument(
     "--graph_regularization",
