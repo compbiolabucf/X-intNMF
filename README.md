@@ -109,7 +109,7 @@ Other arguments include:
 - **Running settings**
   - `--max_iter`: Maximum number of iterations. Default is 5000,
   - `--tol`: Tolerance for stopping criteria. Default is 1e-4,
-  - `--gpu`: GPU device ID. Default is -1, which means CPU. For GPU, specify the device number (e.g., `0`),
+  - `--gpu`: GPU device ID. Default is -1, which means CPU. For GPU, specify the device number (e.g., `0`). For example, if user's machine has 3 GPUs, the possible values are `0`, `1`, `2` or `-1` for CPU,
   - `--backend`: Backend for computation. Options are `numpy`, `cupy`, or `pytorch`. Default is `numpy`.
 - **Logging and MLflow**
   - `--log_file`: Path to the log file. Default is `x_intnmf.log`. Use an empty string to disable logging.
@@ -127,6 +127,21 @@ python X-intNMF-run.py \
 --interaction_input ./sample_processed_data/BRCA_2omics/interaction_mRNA_miRNA.parquet \
 --output_format xlsx \
 --gpu 0 \
+--backend pytorch \
+--mlflow_uri http://localhost:6969 \
+--mlflow_experiment_name Ariel
+```
+
+Another example command for running the framework with three omics data types (mRNA, miRNA, and methylation) in the provided data folder and their interaction network, using GPU 1 with PyTorch backend, saving the output in Parquet format, and logging the convergence to MLflow server at port 6969 and experiment name Ariel:
+```bash
+python X-intNMF-run.py \
+--omics_input \
+./sample_processed_data/BRCA_2omics/mRNA.parquet \
+./sample_processed_data/BRCA_2omics/miRNA.parquet \
+./sample_processed_data/BRCA_3omics/methDNA.parquet \
+--interaction_input ./sample_processed_data/BRCA_2omics/interaction_mRNA_miRNA.parquet \
+--output_format parquet \
+--gpu 1 \
 --backend pytorch \
 --mlflow_uri http://localhost:6969 \
 --mlflow_experiment_name Ariel
