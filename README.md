@@ -132,7 +132,7 @@ python X-intNMF-run.py \
 --mlflow_experiment_name Ariel
 ```
 
-Another example command for running the framework with three omics data types (mRNA, miRNA, and methylation) in the provided data folder and their interaction network, using GPU 1 with PyTorch backend, saving the output in Parquet format, and logging the convergence to MLflow server at port 6969 and experiment name Ariel:
+Another example command for running the framework with three omics data types (mRNA, miRNA, and methylation) in the provided data folder and their interaction network, saving the output in CSV format, and not use MLFlow server:
 ```bash
 python X-intNMF-run.py \
 --omics_input \
@@ -140,11 +140,7 @@ python X-intNMF-run.py \
 ./sample_processed_data/BRCA_2omics/miRNA.parquet \
 ./sample_processed_data/BRCA_3omics/methDNA.parquet \
 --interaction_input ./sample_processed_data/BRCA_2omics/interaction_mRNA_miRNA.parquet \
---output_format parquet \
---gpu 1 \
---backend pytorch \
---mlflow_uri http://localhost:6969 \
---mlflow_experiment_name Ariel
+--output_format xlsx
 ```
 
 
