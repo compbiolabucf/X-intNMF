@@ -157,6 +157,10 @@ python X-intNMF-run.py \
 - With MLFlow, the model tracks the convergence and values of the objective function, along with its components, including the Euclidean distance between consecutive iterations of the factor matrices.
 
 
+## License
+- All source files are licensed under [the MIT License](LICENSE-CODE). 
+- The sample datasets are licensed under their respective licenses. Users are responsible for complying with the licenses of the datasets they use.
+
 ## Contact
 For any concern or further assistance, please contact [tienthanh.bui@ucf.edu](mailto:tienthanh.bui@ucf.edu)
 
