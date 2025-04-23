@@ -163,6 +163,3 @@ python X-intNMF-run.py \
 
 ## Contact
 For any concern or further assistance, please contact [tienthanh.bui@ucf.edu](mailto:tienthanh.bui@ucf.edu)
-
-
-(c) 2025 bu1th4nh / UCF Computational Biology Lab. All rights reserved. 
